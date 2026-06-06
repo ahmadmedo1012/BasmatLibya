@@ -16,7 +16,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: PUBLIC_BASE_URL
-        value: https://basmatlibya.onrender.com
+        value: https://basmatly.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_BOT_USERNAME

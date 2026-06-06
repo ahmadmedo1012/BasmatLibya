@@ -81,10 +81,6 @@ export function buildApp() {
   if (env.NODE_ENV === 'production' && fs.existsSync(webDist)) {
     app.use(express.static(webDist, { index: false }))
     const SPA_HTML = fs.readFileSync(path.join(webDist, 'index.html'), 'utf-8')
-      .replace(
-        '</head>',
-        `<script>window.__TG_BOT_USERNAME__=${JSON.stringify(env.TELEGRAM_BOT_USERNAME || '')}</script></head>`
-      )
     app.get(/^(?!\/api\/|\/socket\.io\/).*/, (_req, res) => {
       res.type('html').send(SPA_HTML)
     })
