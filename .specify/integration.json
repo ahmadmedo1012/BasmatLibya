@@ -2,14 +2,14 @@
   "version": "0.8.18",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "opencode"
+    "hermes"
   ],
   "integration_settings": {
-    "opencode": {
+    "hermes": {
       "script": "sh",
-      "invoke_separator": "."
+      "invoke_separator": "-"
     }
   },
-  "integration": "opencode",
-  "default_integration": "opencode"
+  "integration": "hermes",
+  "default_integration": "hermes"
 }

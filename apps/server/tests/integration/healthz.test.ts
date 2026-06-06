@@ -1,54 +1,73 @@
 /**
- * Healthz integration test (T017, FR-022, SC-010).
+ * Integration test — healthz 503 on DB unreachable (T017, FR-022, SC-010).
  *
- * Verifies that `GET /api/healthz` returns 503 + `db: 'down'` when the
- * database is unreachable. The test mocks the `getDb` import to throw
- * before it can be used, so the health route's try/catch falls into the
- * `dbOk = 'down'` branch.
- *
- * The test does NOT require a running Postgres. It mounts the health
- * router on a fresh Express app and uses supertest to issue the
- * request.
+ * Asserts that `GET /api/healthz` returns:
+ *   - HTTP 503
+ *   - body.db === 'down'
+ *   - body.status === 'degraded'
+ *   - body.dbSchemaVersion === 'unknown' (the meta row is unreachable too)
+ * when the DB is unreachable. We simulate "DB unreachable" by mocking
+ * `getDb()` to throw on `execute()` — the same shape the real client
+ * would have on a connection-refused error.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 
-// Set required env BEFORE importing the modules that read it.
+import { describe, it, expect, beforeAll, vi } from 'vitest'
+import express from 'express'
+import request from 'supertest'
+
+// Set required env BEFORE importing the health router.
 process.env.NODE_ENV = 'test'
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost/test'
 process.env.MODEL_SECRET_KEY = process.env.MODEL_SECRET_KEY || Buffer.alloc(32).toString('base64')
 
-// Mock getDb to throw — simulates an unreachable DB.
+// Mock the DB client to throw on every execute() — simulates a connection
+// refused / network-down state.
 vi.mock('../../src/db/client.js', () => ({
-  getDb: () => {
-    throw new Error('simulated DB unreachable')
+  getDb: () => ({
+    execute: () => {
+      throw new Error('connection refused (simulated)')
+    },
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [],
+        }),
+      }),
+    }),
+  }),
+  schema: {
+    siteSettings: {
+      key: 'key',
+      value: 'value',
+    },
   },
-  schema: {},
 }))
 
-let request: typeof import('supertest').default
-let express: typeof import('express').default
+const { healthRouter } = await import('../../src/http/routes/health.js')
 
-beforeAll(async () => {
-  ;({ default: express } = await import('express'))
-  ;({ default: request } = await import('supertest'))
-})
+describe('GET /api/healthz when DB is unreachable (T017)', () => {
+  let app: express.Express
 
-afterAll(() => {
-  vi.restoreAllMocks()
-})
-
-describe('GET /api/healthz (T017)', () => {
-  it('returns 503 + db: "down" when the database is unreachable', async () => {
-    const { healthRouter } = await import('../../src/http/routes/health.js')
-    const app = express()
+  beforeAll(() => {
+    app = express()
     app.use('/api', healthRouter)
+  })
+
+  it('returns 503 with db=down and status=degraded', async () => {
     const res = await request(app).get('/api/healthz')
     expect(res.status).toBe(503)
     expect(res.body).toMatchObject({
       status: 'degraded',
       db: 'down',
     })
-    expect(res.body).toHaveProperty('version')
-    expect(res.body).toHaveProperty('dbSchemaVersion')
+    // dbSchemaVersion is unknown because the meta-row read also failed.
+    expect(res.body.dbSchemaVersion).toBe('unknown')
+  })
+
+  it('still reports the running image version (so the operator can correlate)', async () => {
+    const res = await request(app).get('/api/healthz')
+    expect(res.status).toBe(503)
+    expect(typeof res.body.version).toBe('string')
+    expect(res.body.version.length).toBeGreaterThan(0)
   })
 })

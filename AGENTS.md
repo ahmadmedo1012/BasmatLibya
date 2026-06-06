@@ -1,11 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, see:
-specs/005-audit-repair-core/plan.md
-specs/005-audit-repair-core/research.md
-specs/005-audit-repair-core/data-model.md
-specs/005-audit-repair-core/quickstart.md
-specs/005-audit-repair-core/tasks.md
+shell commands, and other important information, read the current plan
 <!-- SPECKIT END -->
 
 <!-- context7 -->

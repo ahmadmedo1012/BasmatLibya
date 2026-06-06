@@ -1,5 +1,13 @@
 import { z } from 'zod'
 
+/**
+ * Server environment schema (source of truth — T014).
+ *
+ * Every variable this module reads MUST be documented in
+ * `/.env.example` and every documented variable MUST appear here.
+ * The drift test at `apps/server/tests/hygiene/env-diff.test.ts`
+ * (task T053) fails the build on any mismatch.
+ */
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),

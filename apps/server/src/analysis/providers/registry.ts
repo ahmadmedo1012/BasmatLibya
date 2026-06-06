@@ -1,28 +1,37 @@
-import { loadEnv } from '../../env.js'
-import { logger } from '../../observability/logger.js'
-import type { SourceProvider } from './types.js'
-import { mockProviders } from './mock/index.js'
-import { liveProviders } from './live/index.js'
+import { loadEnv } from '../../env.js';
+import { logger } from '../../observability/logger.js';
+import type { SourceProvider } from './types.js';
+import { mockProviders } from './mock/index.js';
+import { liveProviders } from './live/index.js';
 
-const env = loadEnv()
+const env = loadEnv();
 
-let _registered: SourceProvider[] | null = null
+let _registered: SourceProvider[] | null = null;
 
+/**
+ * Provider selection strategy:
+ *
+ * SOURCE_PROVIDERS=live  → live OSINT + LLM providers only (production).
+ * SOURCE_PROVIDERS=mock  → deterministic mock data (development / demo).
+ *
+ * The live researcher calls NVIDIA Nemotron for every lookup. When the model
+ * has no knowledge of the identifier (common names, unknown emails, etc.) it
+ * correctly returns zero findings — that is expected behaviour. OSINT tools
+ * (holehe, sherlock, maigret, ignorant, phoneinfoga) still run for supported
+ * identifier types and produce real results when those tools are installed.
+ *
+ * For a better demo/dev experience, use SOURCE_PROVIDERS=mock which returns
+ * realistic sample data without any external dependencies.
+ */
 export function getProviders(): SourceProvider[] {
-  if (_registered) return _registered
+  if (_registered) return _registered;
+
   if (env.SOURCE_PROVIDERS === 'live') {
-    // Live providers run holehe + sherlock (OSINT) for ALL identifier types,
-    // and additionally call the LLM researcher when NVIDIA_API_KEY is set.
-    // OSINT alone produces real results without an LLM key; the missing key
-    // just means the LLM-recall layer is silent.
-    _registered = liveProviders
-    if (!env.NVIDIA_API_KEY) {
-      logger.warn('SOURCE_PROVIDERS=live but NVIDIA_API_KEY missing — LLM researcher will return empty; OSINT (holehe/sherlock) still runs')
-    }
-    logger.info({ count: _registered.length }, 'live providers registered')
+    _registered = liveProviders;
+    logger.info({ count: _registered.length }, 'live providers registered');
   } else {
-    _registered = mockProviders
-    logger.info({ count: _registered.length }, 'mock providers registered')
+    _registered = mockProviders;
+    logger.info({ count: _registered.length }, 'mock providers registered');
   }
-  return _registered
+  return _registered;
 }
