@@ -57,7 +57,9 @@ export function verifyTelegramPayload(rawPayload: unknown): VerifyResult {
   }
 
   // Validate shape after HMAC so we never log fields from a tampered payload.
-  const parsed = TelegramAuthPayloadSchema.safeParse(obj)
+  // Normalize hash to lowercase before schema validation (the regex requires it).
+  const normalized = { ...obj, hash: String(obj.hash).toLowerCase() }
+  const parsed = TelegramAuthPayloadSchema.safeParse(normalized)
   if (!parsed.success) {
     return { ok: false, code: 'malformed' }
   }
