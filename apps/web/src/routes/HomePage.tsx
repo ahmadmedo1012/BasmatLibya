@@ -12,10 +12,9 @@ import { Input } from '../components/primitives/Input.js'
 import { PaywallModal } from '../components/primitives/PaywallModal.js'
 import { Icon } from '../lib/icon.js'
 import { cn } from '../lib/cn.js'
-import { useCreateLookup, useTrialState } from '../lib/queries.js'
-import { ApiError } from '../lib/api.js'
+import { useTrialState } from '../lib/queries.js'
+import { MockLookupService } from '../data/mock-lookup.js'
 import { showToast } from '../components/primitives/Toast.js'
-import { usePrincipal } from '../lib/auth.js'
 
 const TYPE_LABEL_AR: Record<IdentifierType, string> = {
   name: 'اسم',
@@ -48,12 +47,11 @@ export function HomePage() {
   const [value, setValue] = useState('')
   const [touched, setTouched] = useState(false)
   const [paywallOpen, setPaywallOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [_loc, setLocation] = useLocation()
-  const principal = usePrincipal()
-  const create = useCreateLookup()
   const trial = useTrialState()
-  const remaining = principal ? null : (trial.data?.remaining ?? 3)
-  const exhausted = !principal && (trial.data?.exhausted ?? false)
+  const remaining = trial.data?.remaining ?? 3
+  const exhausted = trial.data?.exhausted ?? false
 
   const trimmed = value.trim()
   const detected: IdentifierType | null = trimmed.length >= 2 ? detectIdentifierType(trimmed) : null
@@ -76,19 +74,14 @@ export function HomePage() {
       setPaywallOpen(true)
       return
     }
+    setSubmitting(true)
     try {
-      const created = await create.mutateAsync({ identifier: r.data })
+      const created = MockLookupService.createLookup()
       setLocation(`/lookups/${created.id}/progress`)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.payload.code === 'free_trial_exhausted') {
-          setPaywallOpen(true)
-          return
-        }
-        showToast(err.payload.messageAr, 'error')
-      } else {
-        showToast(i18nAr.ar.errors.generic, 'error')
-      }
+    } catch {
+      showToast(i18nAr.ar.errors.generic, 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -99,7 +92,6 @@ export function HomePage() {
 
   return (
     <>
-      {/* Hero */}
       <section className="max-w-[820px] mx-auto text-center mb-12 md:mb-16 animate-fadeIn relative">
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -120,8 +112,7 @@ export function HomePage() {
           من المصادر العامة فقط، خلال ثوانٍ.
         </p>
 
-        {/* Trial counter — anonymous only */}
-        {!principal && remaining !== null ? (
+        {remaining !== null ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -158,7 +149,6 @@ export function HomePage() {
         ) : null}
       </section>
 
-      {/* Search Bar */}
       <section className="max-w-[760px] mx-auto mb-16 md:mb-24 relative">
         <div className="absolute inset-0 -z-[1] blur-3xl opacity-60 pointer-events-none">
           <div className="absolute inset-x-12 inset-y-0 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 rounded-full" />
@@ -199,11 +189,11 @@ export function HomePage() {
             <Button
               type="submit"
               size="lg"
-              loading={create.isPending}
+              loading={submitting}
               disabled={!value.trim() || Boolean(validationError)}
               className="w-full md:w-auto rounded-2xl px-8"
             >
-              <span>{create.isPending ? i18nAr.ar.home.submitting : i18nAr.ar.home.submit}</span>
+              <span>{submitting ? i18nAr.ar.home.submitting : i18nAr.ar.home.submit}</span>
               <Icon name="bolt" fill size={20} />
             </Button>
           </div>
@@ -235,7 +225,6 @@ export function HomePage() {
         </form>
       </section>
 
-      {/* Features */}
       <section className="max-w-maxWidth mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         {FEATURES.map((f, i) => (
           <motion.div
@@ -255,8 +244,7 @@ export function HomePage() {
         ))}
       </section>
 
-      {/* Final CTA strip — converts trailing scrollers */}
-      {!principal ? (
+      {!exhausted ? (
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}

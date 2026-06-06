@@ -1,1 +1,0 @@
-ALTER TABLE "findings" ALTER COLUMN "source_url" DROP NOT NULL;

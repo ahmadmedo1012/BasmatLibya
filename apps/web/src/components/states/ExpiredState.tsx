@@ -1,27 +1,19 @@
+import { useState } from 'react'
 import { useLocation } from 'wouter'
 import { i18nAr } from '@basmat/shared'
 import { Icon } from '../../lib/icon.js'
 import { Card } from '../primitives/Card.js'
 import { Button } from '../primitives/Button.js'
-import { useRerunLookup } from '../../lib/queries.js'
-import { showToast } from '../primitives/Toast.js'
-import { ApiError } from '../../lib/api.js'
+import { MockLookupService } from '../../data/mock-lookup.js'
 
 export function ExpiredState({ lookupId }: { lookupId: string }) {
   const [_, setLocation] = useLocation()
-  const rerun = useRerunLookup()
+  const [reRunning, setReRunning] = useState(false)
 
   async function onRerun() {
-    try {
-      const created = await rerun.mutateAsync(lookupId)
-      setLocation(`/lookups/${created.id}/progress`)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        showToast(err.payload.messageAr, 'error')
-      } else {
-        showToast(i18nAr.ar.errors.generic, 'error')
-      }
-    }
+    setReRunning(true)
+    const created = MockLookupService.createLookup()
+    setLocation(`/lookups/${created.id}/progress`)
   }
 
   return (
@@ -31,7 +23,7 @@ export function ExpiredState({ lookupId }: { lookupId: string }) {
         <h2 className="text-headlineMd text-ink">{i18nAr.ar.states.expired.title}</h2>
         <p className="mt-2 text-bodyMd text-inkSoft">{i18nAr.ar.states.expired.body}</p>
         <div className="mt-6 flex justify-center">
-          <Button onClick={onRerun} loading={rerun.isPending}>
+          <Button onClick={onRerun} loading={reRunning}>
             {i18nAr.ar.states.expired.cta}
           </Button>
         </div>
