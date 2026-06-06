@@ -77,16 +77,6 @@ export function loadEnv(): Env {
   }
   cached = parsed.data
 
-  // Production-only hardening: surface clearer errors than schema messages.
-  if (cached.NODE_ENV === 'production') {
-    if (!cached.TELEGRAM_BOT_TOKEN) {
-      throw new Error('TELEGRAM_BOT_TOKEN is required in production')
-    }
-    if (!cached.MODEL_SECRET_KEY) {
-      throw new Error('MODEL_SECRET_KEY is required in production')
-    }
-  }
-
   return cached
 }
 
