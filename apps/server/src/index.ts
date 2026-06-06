@@ -78,6 +78,13 @@ export function startServer() {
   const server = createServer(app)
   attachSocketServer(server)
 
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    logger.warn('TELEGRAM_BOT_TOKEN not set — Telegram login will return 503 bot_unavailable')
+  }
+  if (!env.MODEL_SECRET_KEY) {
+    logger.warn('MODEL_SECRET_KEY not set — admin AI model features will fail')
+  }
+
   server.listen(env.PORT, () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'basmat server listening')
   })
