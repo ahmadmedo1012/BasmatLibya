@@ -115,9 +115,10 @@ export function attachTelegramWidget(opts: {
   size?: 'small' | 'medium' | 'large'
   cornerRadius?: number
 }): () => void {
-  // Use a stable callback name so it survives page reloads (redirect flow).
-  const callbackName = '__bsl_tg_login'
-  ;(window as unknown as Record<string, unknown>)[callbackName] = (payload: Record<string, unknown>) => {
+  // The callback is already defined in index.html as window.__bsl_tg_login
+  // to handle the redirect flow where the page reloads. We just wire it up
+  // to the React handler here.
+  ;(window as unknown as Record<string, unknown>)['__bsl_tg_login'] = (payload: Record<string, unknown>) => {
     opts.onPayload(payload)
   }
   const script = document.createElement('script')
@@ -126,12 +127,9 @@ export function attachTelegramWidget(opts: {
   script.setAttribute('data-telegram-login', opts.botUsername)
   script.setAttribute('data-size', opts.size ?? 'large')
   script.setAttribute('data-radius', String(opts.cornerRadius ?? 12))
-  script.setAttribute('data-onauth', `${callbackName}(user)`)
-  // Do NOT request 'write' access — it forces a redirect flow that loses
-  // the in-memory callback. Popup callback (default) keeps the page alive.
+  script.setAttribute('data-onauth', '__bsl_tg_login(user)')
   opts.el.appendChild(script)
   return () => {
     script.remove()
-    delete (window as unknown as Record<string, unknown>)[callbackName]
   }
 }

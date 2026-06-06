@@ -33,6 +33,19 @@
   </head>
   <body data-design-system="bsl-002">
     <div id="root"></div>
+    <!--
+      Telegram Login Widget redirect flow: when the user authorizes, Telegram
+      redirects back to this page with the auth payload in the URL hash. The
+      widget script reads the hash on load and calls window.__bsl_tg_login(user).
+      This inline script must run BEFORE the widget script (which is async) so
+      the callback is already defined when the widget fires it.
+    -->
+    <script>
+      window.__bsl_tg_login = function(user) {
+        // Store the payload for the React app to pick up after mount.
+        window.__bsl_tg_pending = user;
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

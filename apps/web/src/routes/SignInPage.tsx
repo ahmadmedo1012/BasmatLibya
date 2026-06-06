@@ -20,6 +20,34 @@ export function SignInPage() {
   const qc = useQueryClient()
   const [botUsername, setBotUsername] = useState('')
 
+  // Handle redirect flow: Telegram redirects back with auth data in URL hash.
+  // The inline script in index.html stores the payload in window.__bsl_tg_pending
+  // before React mounts. We pick it up here and process it.
+  useEffect(() => {
+    const pending = (window as unknown as Record<string, unknown>).__bsl_tg_pending
+    if (pending && typeof pending === 'object') {
+      // Clear it so we don't process it twice
+      delete (window as unknown as Record<string, unknown>).__bsl_tg_pending
+      handlePayload(pending as Record<string, unknown>)
+    }
+  }, [])
+
+  async function handlePayload(payload: Record<string, unknown>) {
+    try {
+      await submitTelegramPayload(payload)
+      await qc.refetchQueries({ queryKey: ['auth', 'me'] })
+      const next = new URLSearchParams(window.location.search).get('next') || '/'
+      setLocation(next)
+    } catch (err) {
+      if (err instanceof AuthError) {
+        const map = i18nAr.ar.errors as Record<string, string>
+        setError(map[err.code] ?? i18nAr.ar.signIn.failure.body)
+      } else {
+        setError(i18nAr.ar.signIn.failure.body)
+      }
+    }
+  }
+
   useEffect(() => {
     fetch('/api/auth/config')
       .then((r) => r.json())
@@ -32,23 +60,7 @@ export function SignInPage() {
     const detach = attachTelegramWidget({
       el: widgetRef.current,
       botUsername,
-      onPayload: async (payload) => {
-        try {
-          await submitTelegramPayload(payload)
-          // Wait for the cache to be refetched so the next page renders
-          // with the signed-in principal instead of stale null.
-          await qc.refetchQueries({ queryKey: ['auth', 'me'] })
-          const next = new URLSearchParams(window.location.search).get('next') || '/'
-          setLocation(next)
-        } catch (err) {
-          if (err instanceof AuthError) {
-            const map = i18nAr.ar.errors as Record<string, string>
-            setError(map[err.code] ?? i18nAr.ar.signIn.failure.body)
-          } else {
-            setError(i18nAr.ar.signIn.failure.body)
-          }
-        }
-      },
+      onPayload: handlePayload,
     })
     return () => detach()
   }, [botUsername, qc, setLocation])
