@@ -1,0 +1,802 @@
+openapi: 3.1.0
+info:
+  title: BasmatLibya — Auth + Admin API (feature 002)
+  version: 0.2.0
+  description: |
+    Additive REST surface for feature `002-admin-panel-telegram-auth`. This document
+    describes ONLY the new endpoints introduced by this feature: Telegram-based
+    authentication, signed-in user history, and the owner-only admin panel.
+
+    The v1 surface from `001-digital-footprint-analyzer` (`/api/lookups`,
+    `/api/lookups/:id`, `/api/lookups/:id/rerun`, `/api/healthz`) remains
+    unchanged. All schemas here are generated from `zod` schemas in
+    `packages/shared`; treat this file as a snapshot — the runtime is the source
+    of truth.
+
+    Authentication: a server-issued opaque session cookie `bsl_session`
+    (HttpOnly; Secure; SameSite=Lax). State-changing endpoints additionally
+    require an `X-CSRF` header equal to the session's `csrfToken` (returned
+    by `/api/auth/me`). The Telegram callback `/api/auth/telegram` is exempt
+    from `X-CSRF` because it carries its own HMAC verification.
+
+    Authorization roles:
+      - anonymous: no cookie or revoked cookie.
+      - user:     valid cookie, role='user', status='active'.
+      - owner:    valid cookie, role='owner', status='active'.
+
+    All user-facing strings on `4xx`/`5xx` errors are Arabic and pre-translated
+    server-side; clients render them verbatim.
+
+servers:
+  - url: https://basmatlibya.example.com
+    description: Production (Render)
+  - url: http://localhost:5173
+    description: Local dev (Vite proxy → Express on :3001)
+
+tags:
+  - name: auth
+    description: Telegram-only authentication and session lifecycle.
+  - name: me
+    description: Operations scoped to the currently signed-in user.
+  - name: admin-ai-models
+    description: Owner-only AI model registry.
+  - name: admin-users
+    description: Owner-only user administration.
+  - name: admin-site-settings
+    description: Owner-only operator-tunable global controls.
+  - name: admin-audit
+    description: Owner-only audit log.
+
+paths:
+
+  /api/auth/telegram:
+    post:
+      tags: [auth]
+      summary: Verify a Telegram Login Widget payload and establish a session
+      description: |
+        Verifies the Telegram payload via HMAC-SHA256 over the sorted
+        `data_check_string` using a key derived from `TELEGRAM_BOT_TOKEN`,
+        rejects payloads older than 300 seconds, then upserts the user
+        (matched by `id`) and issues a session cookie.
+
+        Owner role is granted when and only when `payload.id === OWNER_TELEGRAM_ID`.
+        No other path can grant the owner role.
+      operationId: telegramAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TelegramAuthPayload' }
+      responses:
+        '200':
+          description: Session established. Cookie set in `Set-Cookie`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthMeResponse' }
+        '401':
+          description: HMAC mismatch or `auth_date` outside the freshness window.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: User is suspended.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Return the current principal (or 401 for anonymous)
+      description: |
+        The SPA calls this on every page load to hydrate the principal,
+        and after sign-in to read the freshly issued `csrfToken`. Anonymous
+        callers receive `401` with code `not_authenticated`.
+      operationId: getMe
+      responses:
+        '200':
+          description: Authenticated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthMeResponse' }
+        '401':
+          description: Anonymous.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/auth/sign-out:
+    post:
+      tags: [auth]
+      summary: Revoke the current session
+      description: |
+        Sets `revoked_at` on the current `sessions` row, clears the
+        cookie, and broadcasts `session.invalidated` to the user's room
+        so any other open tabs of the same user are signed out.
+      operationId: signOut
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Signed out (idempotent).
+
+  /api/me/history:
+    get:
+      tags: [me]
+      summary: List the signed-in user's lookup history
+      description: |
+        Returns the user's lookups, most recent first, excluding rows
+        the user has hidden via `DELETE /api/me/history/{lookupId}`.
+      operationId: getMyHistory
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string, nullable: true }
+          description: Opaque cursor from a previous response.
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: History page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoryPage' }
+        '401':
+          description: Not signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/me/history/{lookupId}:
+    delete:
+      tags: [me]
+      summary: Remove a lookup from the signed-in user's personal history
+      description: |
+        Sets `hidden_by_user_at` on the association row. The underlying
+        `lookups` row is preserved — share links continue to resolve.
+        See R-14 in `research.md`.
+      operationId: hideMyHistoryEntry
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: lookupId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Hidden (idempotent).
+        '401':
+          description: Not signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: No such association for this user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/ai-models:
+    get:
+      tags: [admin-ai-models]
+      summary: List AI model entries
+      operationId: listAiModels
+      responses:
+        '200':
+          description: Entries (credentials are never returned in plaintext).
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AiModelEntryDisplay' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    post:
+      tags: [admin-ai-models]
+      summary: Create a new AI model entry
+      description: |
+        On create, the server validates the credentials against the provider
+        before persisting (FR-012). On validation failure the row is NOT
+        persisted as `active`; the response is `400` with a designed Arabic
+        message.
+      operationId: createAiModel
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiModelEntryCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelEntryDisplay' }
+        '400':
+          description: Validation failed (provider rejected credentials, params out of range, etc.).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/ai-models/{id}:
+    patch:
+      tags: [admin-ai-models]
+      summary: Update an AI model entry (re-validates on save)
+      operationId: updateAiModel
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiModelEntryUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelEntryDisplay' }
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Entry not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [admin-ai-models]
+      summary: Delete an AI model entry
+      description: |
+        Deleting the currently active entry is rejected (`409`) unless
+        another entry has been activated first or `enrichment_enabled`
+        is `false`. See FR-013 and the admin edge-case in `spec.md`.
+      operationId: deleteAiModel
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted.
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Entry not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Cannot delete the currently active entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/ai-models/{id}/activate:
+    post:
+      tags: [admin-ai-models]
+      summary: Designate an AI model entry as the active model
+      description: |
+        Atomically clears `is_active` on every other row and sets it on
+        the target. Re-validates the target's credentials before flipping
+        the flag (FR-012, FR-013).
+      operationId: activateAiModel
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Active model switched.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiModelEntryDisplay' }
+        '400':
+          description: Re-validation failed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Entry not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/users:
+    get:
+      tags: [admin-users]
+      summary: List users with filters and pagination
+      operationId: listUsers
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, suspended] }
+        - in: query
+          name: role
+          schema: { type: string, enum: [owner, user] }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [joined_desc, last_seen_desc], default: last_seen_desc }
+        - in: query
+          name: cursor
+          schema: { type: string, nullable: true }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: Users page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUsersPage' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/users/{id}:
+    get:
+      tags: [admin-users]
+      summary: Read a single user with their lookup history (FR-020)
+      operationId: getAdminUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User detail with paginated history.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserDetail' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [admin-users]
+      summary: Remove a user
+      description: |
+        Cascades sessions and `user_lookup_associations`; sets
+        `lookups.owner_user_id` to NULL (share links survive).
+        Blocked when the target is the last/only owner (FR-010) or when
+        the target has any `ai_model_entries` they created — those must
+        be deleted or reassigned first.
+      operationId: deleteAdminUser
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Removed.
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Cannot remove (last owner, or has dependent AI model entries).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/users/{id}/suspend:
+    post:
+      tags: [admin-users]
+      summary: Suspend a user (revokes every active session of the user)
+      description: |
+        Transactionally sets `users.status='suspended'`, sets `revoked_at`
+        on every active session of that user, appends an audit row, and
+        emits `session.invalidated` to the user's socket room.
+      operationId: suspendUser
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Suspended.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserSummary' }
+        '403':
+          description: Caller is not the owner, or attempting to self-suspend.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/users/{id}/unsuspend:
+    post:
+      tags: [admin-users]
+      summary: Lift a user's suspension
+      operationId: unsuspendUser
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Reinstated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserSummary' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/site-settings:
+    get:
+      tags: [admin-site-settings]
+      summary: Read all site settings as a typed map
+      operationId: listSiteSettings
+      responses:
+        '200':
+          description: Settings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteSettingsMap' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      tags: [admin-site-settings]
+      summary: Update one or more site settings atomically
+      description: |
+        The request is a partial map of `{ key: value }`. Each value is
+        validated against its per-key `zod` schema. The whole request is
+        applied in a single transaction; partial application is impossible.
+      operationId: updateSiteSettings
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteSettingsMap' }
+      responses:
+        '200':
+          description: Effective settings after update.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteSettingsMap' }
+        '400':
+          description: Per-key validation failed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/admin/audit:
+    get:
+      tags: [admin-audit]
+      summary: List audit-log entries
+      operationId: listAudit
+      parameters:
+        - in: query
+          name: eventClass
+          schema: { type: string, enum: [auth, admin] }
+        - in: query
+          name: actorUserId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: targetKind
+          schema: { type: string }
+        - in: query
+          name: targetId
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, nullable: true }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Audit page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditPage' }
+        '403':
+          description: Caller is not the owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+components:
+
+  parameters:
+    CsrfHeader:
+      in: header
+      name: X-CSRF
+      required: true
+      schema: { type: string }
+      description: Per-session double-submit token from `/api/auth/me` (R-04).
+
+  schemas:
+
+    TelegramAuthPayload:
+      type: object
+      required: [id, auth_date, hash, first_name]
+      additionalProperties: false
+      properties:
+        id:         { type: integer, format: int64 }
+        first_name: { type: string }
+        last_name:  { type: string }
+        username:   { type: string }
+        photo_url:  { type: string, format: uri }
+        auth_date:  { type: integer, description: "Unix seconds; rejected if older than 300 s." }
+        hash:       { type: string, description: "Lowercase hex HMAC-SHA256." }
+
+    Principal:
+      type: object
+      required: [id, telegramId, displayName, role, status]
+      properties:
+        id:          { type: string, format: uuid }
+        telegramId:  { type: integer, format: int64 }
+        displayName: { type: string }
+        username:    { type: string, nullable: true }
+        avatarUrl:   { type: string, format: uri, nullable: true }
+        role:        { type: string, enum: [owner, user] }
+        status:      { type: string, enum: [active, suspended] }
+
+    AuthMeResponse:
+      type: object
+      required: [principal, csrfToken, sessionExpiresAt]
+      properties:
+        principal:        { $ref: '#/components/schemas/Principal' }
+        csrfToken:        { type: string, description: "Send back as X-CSRF on state-changing requests." }
+        sessionExpiresAt: { type: string, format: date-time }
+
+    LookupHistoryItem:
+      type: object
+      required: [lookupId, identifierType, identifierPreview, status, createdAt, expiresAt]
+      properties:
+        lookupId:          { type: string, format: uuid }
+        identifierType:    { type: string, enum: [name, username, email, phone] }
+        identifierPreview: { type: string, description: "Truncated for display." }
+        status:            { type: string, enum: [in_progress, completed, failed, cancelled, expired] }
+        createdAt:         { type: string, format: date-time }
+        expiresAt:         { type: string, format: date-time }
+
+    HistoryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LookupHistoryItem' } }
+        nextCursor: { type: string, nullable: true }
+
+    AiModelProvider:
+      type: string
+      enum: [openai, anthropic, google, nvidia, openai_compatible]
+
+    AiModelStatus:
+      type: string
+      enum: [active, inactive, invalid]
+
+    AiModelGenerationParams:
+      type: object
+      required: [systemPrompt, temperature, maxOutputTokens, extraParams]
+      properties:
+        systemPrompt:     { type: string }
+        temperature:      { type: number, minimum: 0, maximum: 2 }
+        maxOutputTokens:  { type: integer, minimum: 16, maximum: 32000 }
+        extraParams:      { type: object, additionalProperties: true }
+
+    AiModelEntryCreate:
+      type: object
+      required: [provider, modelId, credential, generation]
+      properties:
+        provider:     { $ref: '#/components/schemas/AiModelProvider' }
+        modelId:      { type: string }
+        displayLabel: { type: string, nullable: true }
+        credential:   { type: string, description: "Plaintext credential — accepted on the wire only over TLS, encrypted at rest with MODEL_SECRET_KEY." }
+        generation:   { $ref: '#/components/schemas/AiModelGenerationParams' }
+
+    AiModelEntryUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        modelId:      { type: string }
+        displayLabel: { type: string, nullable: true }
+        credential:   { type: string, description: "Optional rotation. If omitted, the existing ciphertext is preserved." }
+        generation:   { $ref: '#/components/schemas/AiModelGenerationParams' }
+
+    AiModelEntryDisplay:
+      type: object
+      required: [id, provider, modelId, displayLabel, credential, generation, status, isActive, validatedAt, createdAt, lastUpdatedAt]
+      properties:
+        id:           { type: string, format: uuid }
+        provider:     { $ref: '#/components/schemas/AiModelProvider' }
+        modelId:      { type: string }
+        displayLabel: { type: string, nullable: true }
+        credential:
+          type: object
+          required: [present, lastFour]
+          description: "Server-side display shape — plaintext is never returned (G8)."
+          properties:
+            present:  { type: boolean }
+            lastFour: { type: string, description: 'Last 4 plaintext chars, e.g. "•••• 1234".' }
+        generation:        { $ref: '#/components/schemas/AiModelGenerationParams' }
+        status:            { $ref: '#/components/schemas/AiModelStatus' }
+        isActive:          { type: boolean }
+        validatedAt:       { type: string, format: date-time, nullable: true }
+        lastValidationError: { type: string, nullable: true }
+        createdAt:         { type: string, format: date-time }
+        lastUpdatedAt:     { type: string, format: date-time }
+
+    AdminUserSummary:
+      type: object
+      required: [id, telegramId, displayName, role, status, joinedAt, lastSeenAt]
+      properties:
+        id:          { type: string, format: uuid }
+        telegramId:  { type: integer, format: int64 }
+        displayName: { type: string }
+        username:    { type: string, nullable: true }
+        avatarUrl:   { type: string, format: uri, nullable: true }
+        role:        { type: string, enum: [owner, user] }
+        status:      { type: string, enum: [active, suspended] }
+        joinedAt:    { type: string, format: date-time }
+        lastSeenAt:  { type: string, format: date-time }
+        suspendedAt: { type: string, format: date-time, nullable: true }
+
+    AdminUserDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminUserSummary'
+        - type: object
+          required: [history, activeSessions]
+          properties:
+            history:
+              type: array
+              items: { $ref: '#/components/schemas/LookupHistoryItem' }
+            activeSessions: { type: integer, minimum: 0 }
+
+    AdminUsersPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminUserSummary' } }
+        nextCursor: { type: string, nullable: true }
+
+    SiteSettingsMap:
+      type: object
+      description: |
+        Typed map of every site-settings key. Keys absent from a PATCH body
+        are left unchanged. Server-side `zod` discriminates value types per key.
+      additionalProperties: false
+      properties:
+        lookup_retention_days:                       { type: integer, minimum: 1,  maximum: 365 }
+        rate_limit_per_visitor_window_minutes:       { type: integer, minimum: 1,  maximum: 1440 }
+        rate_limit_per_visitor_max_per_window:       { type: integer, minimum: 1,  maximum: 100 }
+        rate_limit_per_identifier_window_minutes:    { type: integer, minimum: 1,  maximum: 1440 }
+        rate_limit_per_identifier_max_per_window:    { type: integer, minimum: 1,  maximum: 1000 }
+        enrichment_enabled:                          { type: boolean }
+        public_lookups_enabled:                      { type: boolean }
+        session_lifetime_days:                       { type: integer, minimum: 1,  maximum: 90 }
+
+    AuditEntry:
+      type: object
+      required: [id, eventClass, eventSubclass, createdAt]
+      properties:
+        id:            { type: string, format: uuid }
+        actor:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AdminUserSummary'
+        eventClass:    { type: string, enum: [auth, admin] }
+        eventSubclass: { type: string, description: "E.g. user_suspend, ai_model_activate, sign_in_success." }
+        targetKind:    { type: string, nullable: true }
+        targetId:      { type: string, nullable: true }
+        beforeValue:
+          nullable: true
+          description: "Sensitive fields are replaced by { redacted: true } at the choke-point."
+        afterValue:
+          nullable: true
+          description: "Same redaction rules as beforeValue."
+        createdAt:     { type: string, format: date-time }
+
+    AuditPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+        nextCursor: { type: string, nullable: true }
+
+    ErrorResponse:
+      type: object
+      required: [code, messageAr]
+      properties:
+        code:
+          type: string
+          description: Stable machine code.
+          enum:
+            - not_authenticated
+            - unauthorized
+            - csrf_required
+            - hmac_invalid
+            - auth_date_too_old
+            - bot_unavailable
+            - suspended_user
+            - validation_failed
+            - last_owner_protected
+            - dependent_entries
+            - active_model_protected
+            - rate_limited
+            - not_found
+        messageAr:
+          type: string
+          description: Pre-translated Arabic message; the UI renders verbatim.
+        details:
+          type: object
+          nullable: true
+          description: Optional structured details (e.g. per-field validation errors).

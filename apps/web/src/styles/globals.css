@@ -1,0 +1,246 @@
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    direction: rtl;
+    color-scheme: dark;
+    font-feature-settings: 'kern', 'liga', 'calt';
+  }
+
+  body {
+    background-color: theme('colors.background');
+    color: theme('colors.ink');
+    font-family: theme('fontFamily.arabic');
+    font-weight: 400;
+    font-feature-settings: 'kern', 'liga', 'calt';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+    overflow-x: hidden;
+    /* Layered ambient glow — warm, restrained. */
+    background-image:
+      radial-gradient(900px 600px at 80% -10%, rgba(229, 90, 90, 0.10), transparent 65%),
+      radial-gradient(700px 500px at -5% 25%, rgba(124, 60, 60, 0.06), transparent 65%),
+      radial-gradient(500px 400px at 50% 110%, rgba(229, 90, 90, 0.06), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: rgba(229, 90, 90, 0.32);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.primary');
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* Subtle film grain to break up gradient banding. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index: 0;
+    mix-blend-mode: overlay;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Material Symbols default settings */
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+  }
+  .material-symbols-outlined.fill {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+}
+
+@layer components {
+  .shadow-card {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  }
+
+
+  /* Glass surfaces — warmer & more refined than Stitch's defaults. */
+  .glass-card {
+    background: linear-gradient(
+      180deg,
+      rgba(28, 22, 22, 0.68) 0%,
+      rgba(20, 16, 16, 0.55) 100%
+    );
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-card-strong {
+    background: linear-gradient(
+      180deg,
+      rgba(40, 24, 24, 0.72) 0%,
+      rgba(24, 16, 16, 0.62) 100%
+    );
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(229, 90, 90, 0.18);
+  }
+
+  .ai-glow {
+    box-shadow:
+      0 0 0 1px rgba(229, 90, 90, 0.15),
+      0 24px 60px -28px rgba(229, 90, 90, 0.35);
+  }
+
+  .search-glow:focus-within {
+    box-shadow:
+      0 0 0 1px rgba(229, 90, 90, 0.45),
+      0 0 28px rgba(229, 90, 90, 0.20);
+    border-color: theme('colors.primary');
+  }
+
+  .btn-red-gradient {
+    background: theme('backgroundImage.red-gradient');
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium tracking-wide;
+  }
+
+  .accent-gradient-text {
+    background: linear-gradient(120deg, #f3ebe7 0%, #e55a5a 60%, #ed6e6e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@layer utilities {
+  .bidi-isolate {
+    unicode-bidi: isolate;
+  }
+  @keyframes aurora {
+    0%   { transform: translate3d(0,0,0) rotate(0deg) scale(1); }
+    50%  { transform: translate3d(2%,-3%,0) rotate(180deg) scale(1.15); }
+    100% { transform: translate3d(0,0,0) rotate(360deg) scale(1); }
+  }
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+  .bg-grid {
+    background-image:
+      radial-gradient(rgba(229, 90, 90, 0.05) 1px, transparent 1px),
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 44px 44px, 88px 88px, 88px 88px;
+    background-position: 0 0, 0 0, 0 0;
+  }
+  .bg-aurora {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-aurora::before,
+  .bg-aurora::after {
+    content: '';
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(120px);
+    opacity: 0.55;
+    will-change: transform;
+  }
+  .bg-aurora::before {
+    width: 60vw;
+    height: 60vw;
+    top: -20vw;
+    right: -10vw;
+    background: radial-gradient(circle, rgba(229, 90, 90, 0.45), transparent 60%);
+    animation: aurora 22s ease-in-out infinite;
+  }
+  .bg-aurora::after {
+    width: 50vw;
+    height: 50vw;
+    bottom: -15vw;
+    left: -10vw;
+    background: radial-gradient(circle, rgba(157, 42, 42, 0.32), transparent 60%);
+    animation: aurora 18s ease-in-out infinite reverse;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-aurora::before,
+    .bg-aurora::after {
+      animation: none;
+    }
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .gradient-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.10) 50%,
+      transparent 100%
+    );
+  }
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      rgba(243, 235, 231, 0.45) 0%,
+      rgba(243, 235, 231, 1) 50%,
+      rgba(243, 235, 231, 0.45) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 2.4s linear infinite;
+  }
+  .accent-gradient-text-strong {
+    background: linear-gradient(120deg, #ffe5dc 0%, #ed6e6e 35%, #e55a5a 60%, #ed6e6e 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradientShift 8s ease infinite;
+  }
+  .ring-glow {
+    box-shadow:
+      0 0 0 1px rgba(229, 90, 90, 0.3),
+      0 0 40px rgba(229, 90, 90, 0.25),
+      0 24px 60px -22px rgba(229, 90, 90, 0.4);
+  }
+  .text-stroke-faint {
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.08);
+    color: transparent;
+  }
+}

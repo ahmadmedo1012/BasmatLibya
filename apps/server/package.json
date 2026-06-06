@@ -1,0 +1,53 @@
+{
+  "name": "@basmat/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file=../../.env dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --dir tests/integration",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
+    "db:seed": "tsx --env-file=../../.env tooling/seed.ts",
+    "db:reset": "tsx --env-file=../../.env tooling/reset.ts",
+    "db:rollback": "tsx --env-file=../../.env tooling/rollback-002.ts",
+    "retention:run": "tsx --env-file=../../.env tooling/retention.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
+    "@basmat/shared": "workspace:*",
+    "@google/generative-ai": "^0.21.0",
+    "@neondatabase/serverless": "^0.9.5",
+    "compression": "^1.7.4",
+    "cookie": "^1.0.1",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.34.1",
+    "express": "^5.0.0",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "openai": "^4.67.3",
+    "pg": "^8.13.0",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "socket.io": "^4.8.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cookie": "^0.6.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.2",
+    "drizzle-kit": "^0.25.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2"
+  }
+}

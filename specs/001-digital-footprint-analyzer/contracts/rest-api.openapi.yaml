@@ -1,0 +1,346 @@
+openapi: 3.1.0
+info:
+  title: BasmatLibya — Digital Footprint Analyzer API
+  version: 0.1.0
+  description: |
+    REST surface for the v1 Arabic-first digital footprint analyzer.
+    All schemas are generated from the `zod` schemas in `packages/shared`;
+    treat this file as a snapshot — the runtime is the source of truth.
+    No authentication. No accounts. No sessions.
+
+    All user-facing strings on `4xx` errors are Arabic and pre-translated
+    server-side; clients render them verbatim.
+
+servers:
+  - url: https://basmatlibya.example.com
+    description: Production (Render)
+  - url: http://localhost:5173
+    description: Local dev (Vite proxy → Express on :3001)
+
+tags:
+  - name: lookups
+    description: Anonymous footprint-lookup lifecycle.
+  - name: meta
+    description: Operational metadata.
+
+paths:
+  /api/lookups:
+    post:
+      tags: [lookups]
+      summary: Create a new lookup
+      description: |
+        Creates a `lookups` row in `in_progress` and kicks off the analysis pipeline.
+        The response is returned immediately; the client then subscribes to the
+        Socket.IO room for `id` to receive progress events (see `socket-events.md`).
+      operationId: createLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLookupRequest'
+            examples:
+              arabic_name:
+                summary: Arabic full name
+                value: { identifier: "أحمد محمد" }
+              email:
+                summary: Email
+                value: { identifier: "user@example.com" }
+              phone:
+                summary: Phone
+                value: { identifier: "+218911234567" }
+      responses:
+        '201':
+          description: Lookup accepted; analysis is now running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLookupResponse'
+        '400':
+          description: Validation failure (invalid identifier).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit hit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/lookups/{id}:
+    get:
+      tags: [lookups]
+      summary: Read a completed lookup (the share-link target)
+      description: |
+        Returns the polished aggregated result for `id`.
+        While a lookup is `in_progress`, this endpoint returns `409` and the client
+        is expected to use the Socket.IO channel — there is no status-polling endpoint.
+      operationId: getLookup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Completed result, expired notice, or designed failure-state.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CompletedLookupResponse'
+                  - $ref: '#/components/schemas/ExpiredLookupResponse'
+                  - $ref: '#/components/schemas/FailedLookupResponse'
+                discriminator:
+                  propertyName: status
+                  mapping:
+                    completed:    '#/components/schemas/CompletedLookupResponse'
+                    expired:      '#/components/schemas/ExpiredLookupResponse'
+                    failed:       '#/components/schemas/FailedLookupResponse'
+        '404':
+          description: No such lookup.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Lookup is still in_progress; subscribe via Socket.IO instead.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [lookups]
+      summary: Cancel an in-progress lookup
+      description: |
+        Idempotent. Allowed only while `status='in_progress'`. After cancel, no
+        result is persisted and the share link resolves to a designed cancelled-state.
+      operationId: cancelLookup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Cancelled (or already terminal). }
+        '404':
+          description: No such lookup.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/lookups/{id}/rerun:
+    post:
+      tags: [lookups]
+      summary: Re-run a previous lookup with the same identifier
+      description: |
+        Used by the expired-state UI (FR-012). Creates a fresh lookup with the
+        same `identifier_value` and returns the new id; subject to the same
+        rate-limiter rules as `POST /api/lookups`.
+      operationId: rerunLookup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: New lookup created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateLookupResponse' }
+        '404':
+          description: Original lookup unknown.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: Rate limit hit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/healthz:
+    get:
+      tags: [meta]
+      summary: Liveness + DB reachability
+      operationId: getHealth
+      responses:
+        '200':
+          description: Healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Unhealthy (DB unreachable, etc.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+
+    IdentifierType:
+      type: string
+      enum: [name, username, email, phone]
+
+    Confidence:
+      type: string
+      enum: [high, medium, low]
+
+    CategoryKey:
+      type: string
+      enum:
+        - social_presence
+        - public_mentions
+        - contact_signals
+        - reputation_indicators
+        - profile_imagery
+
+    CategoryState:
+      type: string
+      enum: [queued, running, completed, failed, skipped]
+
+    CreateLookupRequest:
+      type: object
+      required: [identifier]
+      properties:
+        identifier:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Submitted identifier as typed (after trim). Type is auto-detected server-side.
+
+    CreateLookupResponse:
+      type: object
+      required: [id, identifierType, status, expiresAt, socketRoom]
+      properties:
+        id:
+          type: string
+          format: uuid
+        identifierType:
+          $ref: '#/components/schemas/IdentifierType'
+        status:
+          type: string
+          enum: [in_progress]
+        expiresAt:
+          type: string
+          format: date-time
+        socketRoom:
+          type: string
+          description: Room name to emit `lookup.subscribe` on, equal to `lookup:{id}`.
+
+    Finding:
+      type: object
+      required: [id, categoryKey, title, sourceUrl, sourceName, confidence]
+      properties:
+        id:           { type: string, format: uuid }
+        categoryKey:  { $ref: '#/components/schemas/CategoryKey' }
+        title:        { type: string }
+        snippet:      { type: string, nullable: true }
+        sourceUrl:    { type: string, format: uri }
+        sourceName:   { type: string }
+        language:     { type: string, nullable: true, description: BCP-47 tag of the source content. }
+        confidence:   { $ref: '#/components/schemas/Confidence' }
+
+    CategoryBlock:
+      type: object
+      required: [key, displayLabelAr, state, findings]
+      properties:
+        key:            { $ref: '#/components/schemas/CategoryKey' }
+        displayLabelAr: { type: string }
+        state:          { $ref: '#/components/schemas/CategoryState' }
+        failureReason:
+          type: string
+          nullable: true
+          description: Internal class (e.g. `timeout`); the UI maps to a designed Arabic message, never displays raw.
+        findings:
+          type: array
+          items: { $ref: '#/components/schemas/Finding' }
+
+    EnrichmentSlot:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [skipped, pending, ready, failed]
+          description: v1 always `skipped`. Reserved for AI enrichment.
+        payload:
+          description: v1 always `null`. Future AI provider populates.
+          nullable: true
+
+    CompletedLookupResponse:
+      type: object
+      required: [status, id, identifierValue, identifierType, summaryHeadlineAr, totalFindings, categories, enrichment, createdAt, expiresAt]
+      properties:
+        status:            { type: string, enum: [completed] }
+        id:                { type: string, format: uuid }
+        identifierValue:   { type: string }
+        identifierType:    { $ref: '#/components/schemas/IdentifierType' }
+        summaryHeadlineAr: { type: string }
+        totalFindings:     { type: integer, minimum: 0 }
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/CategoryBlock' }
+        enrichment: { $ref: '#/components/schemas/EnrichmentSlot' }
+        createdAt:  { type: string, format: date-time }
+        expiresAt:  { type: string, format: date-time }
+
+    ExpiredLookupResponse:
+      type: object
+      required: [status, id, identifierValue, identifierType, expiredAt]
+      properties:
+        status:          { type: string, enum: [expired] }
+        id:              { type: string, format: uuid }
+        identifierValue: { type: string, description: Kept long enough to power one-click re-run. }
+        identifierType:  { $ref: '#/components/schemas/IdentifierType' }
+        expiredAt:       { type: string, format: date-time }
+
+    FailedLookupResponse:
+      type: object
+      required: [status, id, scope]
+      properties:
+        status: { type: string, enum: [failed] }
+        id:     { type: string, format: uuid }
+        scope:
+          type: string
+          enum: [all_categories_failed, cancelled]
+          description: Distinguishes the "all sources failed" full-failure state from a user-cancelled lookup.
+
+    ErrorResponse:
+      type: object
+      required: [code, messageAr]
+      properties:
+        code:
+          type: string
+          description: Stable machine code.
+          enum:
+            - identifier_invalid
+            - identifier_too_short
+            - identifier_too_long
+            - rate_limited
+            - lookup_in_progress
+            - lookup_not_found
+        messageAr:
+          type: string
+          description: Pre-translated Arabic message; the UI renders verbatim.
+        retryAfterSeconds:
+          type: integer
+          nullable: true
+          description: Present on `rate_limited`.
+
+    HealthResponse:
+      type: object
+      required: [status, db, version]
+      properties:
+        status:  { type: string, enum: [ok, degraded] }
+        db:      { type: string, enum: [ok, down] }
+        version: { type: string }

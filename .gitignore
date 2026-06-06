@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+apps/web/dist/
+apps/server/dist/
+packages/shared/dist/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# Test / coverage
+coverage/
+.vitest/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.vscode/
+.idea/
+
+# Drizzle
+apps/server/drizzle/
+
+# Agent / AI tooling
+.claude/
+.opencode/
+
+# Python virtual environments
+tooling/osint-venv/
+
+# Local docker volumes (if mounted into repo)
+.pgdata/
