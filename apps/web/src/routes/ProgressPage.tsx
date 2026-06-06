@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import {
   type CategoryKey,
   type CategoryState,
-  type LookupSnapshot,
   i18nAr,
 } from '@basmat/shared'
 import { getSocket, subscribeToLookup, unsubscribeFromLookup } from '../lib/socket.js'
@@ -40,7 +39,6 @@ const CATEGORY_ICON: Record<CategoryKey, string> = {
 
 export function ProgressPage({ id }: { id: string }) {
   const [_loc, setLocation] = useLocation()
-  const [snapshot, setSnapshot] = useState<LookupSnapshot | null>(null)
   const [categories, setCategories] = useState<Map<CategoryKey, CategoryView>>(new Map())
   const [notFound, setNotFound] = useState(false)
   const cancel = useCancelLookup()
@@ -56,8 +54,6 @@ export function ProgressPage({ id }: { id: string }) {
         setNotFound(true)
         return
       }
-      setSnapshot(ack.replay)
-
       const m = new Map<CategoryKey, CategoryView>()
       for (const k of CATEGORY_ORDER) {
         const c = ack.replay.categories.find((c) => c.key === k)
