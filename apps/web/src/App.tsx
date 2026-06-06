@@ -14,11 +14,11 @@ import { Icon } from './lib/icon.js'
 import { i18nAr } from '@basmat/shared'
 export function App() {
   return (
-    <div className="bg-background min-h-screen flex flex-col selection:bg-primary/30 relative">
-      <div className="bg-aurora" aria-hidden />
-      <TopAppBar />
+    <Router hook={useHashLocation}>
+      <div className="bg-background min-h-screen flex flex-col selection:bg-primary/30 relative">
+        <div className="bg-aurora" aria-hidden />
+        <TopAppBar />
 
-      <Router hook={useHashLocation}>
         <main className="flex-grow pt-24 pb-32 px-marginMobile md:px-marginDesktop bg-grid relative z-[1]">
           <Switch>
             <Route path="/" component={HomePage} />
@@ -36,16 +36,16 @@ export function App() {
             <Route component={NotFoundPage} />
           </Switch>
         </main>
-      </Router>
 
-      <footer className="bg-surfaceContainerLowest border-t border-outlineVariant/10 w-full py-8 mb-20 flex flex-col items-center gap-4 px-marginMobile text-center">
-        <div className="text-bodyMd font-semibold text-primary">{i18nAr.ar.app.name}</div>
-        <p className="text-labelSm text-inkMuted">© 2026 Basma Libya Intelligence. جميع الحقوق محفوظة.</p>
-      </footer>
+        <footer className="bg-surfaceContainerLowest border-t border-outlineVariant/10 w-full py-8 mb-20 flex flex-col items-center gap-4 px-marginMobile text-center">
+          <div className="text-bodyMd font-semibold text-primary">{i18nAr.ar.app.name}</div>
+          <p className="text-labelSm text-inkMuted">© 2026 Basma Libya Intelligence. جميع الحقوق محفوظة.</p>
+        </footer>
 
-      <BottomNavBar />
-      <ToastHost />
-    </div>
+        <BottomNavBar />
+        <ToastHost />
+      </div>
+    </Router>
   )
 }
 
