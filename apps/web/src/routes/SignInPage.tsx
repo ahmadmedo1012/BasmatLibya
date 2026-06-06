@@ -18,7 +18,14 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   const [, setLocation] = useLocation()
   const qc = useQueryClient()
-  const botUsername = ((window as unknown as Record<string, string>).__TG_BOT_USERNAME__ ?? import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? '').trim()
+  const [botUsername, setBotUsername] = useState('')
+
+  useEffect(() => {
+    fetch('/api/auth/config')
+      .then((r) => r.json())
+      .then((d) => setBotUsername((d.telegramBotUsername ?? '').trim()))
+      .catch(() => setBotUsername((import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? '').trim()))
+  }, [])
 
   useEffect(() => {
     if (!widgetRef.current || !botUsername) return

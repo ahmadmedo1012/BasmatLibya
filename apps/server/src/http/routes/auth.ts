@@ -21,6 +21,11 @@ import { buildArErrorBody } from '../middleware/error.js'
 
 export const authRouter = Router()
 
+authRouter.get('/config', (_req, res) => {
+  const env = loadEnv()
+  res.json({ telegramBotUsername: env.TELEGRAM_BOT_USERNAME || '' })
+})
+
 function clientSignature(req: Request): string {
   const ua = req.header('user-agent') ?? ''
   // Coarse IP — keep prefix only so we don't pretend to do binding.
