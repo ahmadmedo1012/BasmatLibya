@@ -31,6 +31,11 @@ COPY --from=build /repo/packages/shared/package.json packages/shared/
 COPY --from=build /repo/packages/shared/dist        packages/shared/dist
 COPY --from=build /repo/apps/server/package.json    apps/server/
 COPY --from=build /repo/apps/server/dist            apps/server/dist
+# Drizzle's runtime migrator reads .sql files + meta/_journal.json from disk.
+# The preDeployCommand (render.yaml) runs `pnpm db:migrate` from the runtime
+# image, so the migrations folder must be present at the same path the
+# compiled migrate.js resolves relative to itself (apps/server/dist/db/migrations).
+COPY --from=build /repo/apps/server/src/db/migrations apps/server/dist/db/migrations
 COPY --from=build /repo/apps/web/dist               apps/web/dist
 RUN pnpm install --prod --frozen-lockfile
 
