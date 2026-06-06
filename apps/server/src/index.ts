@@ -63,7 +63,7 @@ export function buildApp() {
   // Path is relative to dist/index.js → ../../web/dist
   const webDist = path.resolve(here, '../../web/dist')
   if (env.NODE_ENV === 'production' && fs.existsSync(webDist)) {
-    app.use(express.static(webDist))
+    app.use(express.static(webDist, { index: false }))
     const SPA_HTML = fs.readFileSync(path.join(webDist, 'index.html'), 'utf-8')
       .replace(
         '</head>',
