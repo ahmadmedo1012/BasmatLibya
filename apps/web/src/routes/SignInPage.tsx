@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'wouter'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -32,7 +32,7 @@ export function SignInPage() {
     }
   }, [])
 
-  async function handlePayload(payload: Record<string, unknown>) {
+  const handlePayload = useCallback(async (payload: Record<string, unknown>) => {
     try {
       await submitTelegramPayload(payload)
       await qc.refetchQueries({ queryKey: ['auth', 'me'] })
@@ -46,7 +46,7 @@ export function SignInPage() {
         setError(i18nAr.ar.signIn.failure.body)
       }
     }
-  }
+  }, [qc, setLocation])
 
   useEffect(() => {
     fetch('/api/auth/config')
@@ -63,7 +63,7 @@ export function SignInPage() {
       onPayload: handlePayload,
     })
     return () => detach()
-  }, [botUsername, qc, setLocation])
+  }, [botUsername, handlePayload])
 
   return (
     <motion.div
