@@ -8,7 +8,7 @@ import { buildArErrorBody } from './error.js'
  * an authenticated user but not specifically the owner.
  */
 export async function requireSession(req: Request, res: Response, next: NextFunction) {
-  const session = await resolvePrincipal(req)
+  const session = await resolvePrincipal(req, res)
   if (!session) {
     return res.status(401).json(buildArErrorBody('not_authenticated'))
   }
@@ -21,8 +21,8 @@ export async function requireSession(req: Request, res: Response, next: NextFunc
  * Use for routes that read identity opportunistically (e.g. POST /api/lookups
  * that records `owner_user_id` only when signed in).
  */
-export async function optionalSession(req: Request, _res: Response, next: NextFunction) {
-  const session = await resolvePrincipal(req)
+export async function optionalSession(req: Request, res: Response, next: NextFunction) {
+  const session = await resolvePrincipal(req, res)
   if (session) req.session = session
   next()
 }

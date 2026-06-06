@@ -8,12 +8,22 @@ import {
   i18nAr,
 } from '@basmat/shared'
 import { getSocket, subscribeToLookup, unsubscribeFromLookup } from '../lib/socket.js'
+import { ApiError, getLookup } from '../lib/api.js'
 import { Button } from '../components/primitives/Button.js'
 import { Icon } from '../lib/icon.js'
 import { useCancelLookup } from '../lib/queries.js'
 import { showToast } from '../components/primitives/Toast.js'
 import { NotFoundPage } from './NotFoundPage.js'
 import { cn } from '../lib/cn.js'
+
+/**
+ * FR-012, FR-017: if the socket can't deliver a snapshot in this many
+ * ms, fall back to a single GET /api/lookups/:id and navigate based
+ * on the terminal state. The fallback is the safety net for poor
+ * networks, captive portals, and aggressive ad-blockers that strip
+ * the websocket transport.
+ */
+const SOCKET_FALLBACK_MS = 5000
 
 interface CategoryView {
   key: CategoryKey
@@ -48,10 +58,51 @@ export function ProgressPage({ id }: { id: string }) {
   useEffect(() => {
     let active = true
     let cleanup = () => {}
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null
 
     async function go() {
+      // FR-012: start a fallback timer. If the socket doesn't deliver a
+      // snapshot within SOCKET_FALLBACK_MS, we GET /api/lookups/:id
+      // directly and navigate based on the terminal state. This handles
+      // poor networks, captive portals, and ad-blockers that strip WS.
+      fallbackTimer = setTimeout(async () => {
+        if (!active) return
+        try {
+          const res = await getLookup(id)
+          if (!active) return
+          // Any terminal status (completed / expired / failed) → navigate
+          // to the result page which renders the appropriate empty state.
+          setLocation(`/lookups/${id}`)
+          // touch `res` so eslint/ts don't flag the unused binding —
+          // the point of the call is the side effect of validating the
+          // state, not the response shape.
+          void res.status
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 409) {
+            // Still running — keep the progress UI; the socket may
+            // reconnect on its own.
+            return
+          }
+          if (e instanceof ApiError && e.status === 404) {
+            // The lookup was deleted or never existed; navigate to the
+            // 404 page so the user has a clean state.
+            setLocation('/404')
+            return
+          }
+          // 5xx or network error — keep the spinner and show a toast.
+          showToast(i18nAr.ar.errors.generic, 'error')
+        }
+      }, SOCKET_FALLBACK_MS)
+
       const ack = await subscribeToLookup(id)
-      if (!active) return
+      if (!active) {
+        if (fallbackTimer) clearTimeout(fallbackTimer)
+        return
+      }
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer)
+        fallbackTimer = null
+      }
       if (!ack.ok) {
         setNotFound(true)
         return
@@ -168,6 +219,7 @@ export function ProgressPage({ id }: { id: string }) {
     go()
     return () => {
       active = false
+      if (fallbackTimer) clearTimeout(fallbackTimer)
       cleanup()
     }
   }, [id, setLocation])

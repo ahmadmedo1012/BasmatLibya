@@ -3,15 +3,17 @@
  *
  * Anonymous callers receive `null` (never throws on missing cookie). A revoked
  * or expired session is treated as anonymous and is also revoked-with-reason
- * if it had only just expired.
+ * if it had only just expired. When the row is *present but stale* (revoked,
+ * expired, or its user is suspended) the session cookie is cleared on the
+ * response so the browser stops sending it on every request (T011, FR-005).
  */
 
 import { createHash } from 'node:crypto'
-import type { Request } from 'express'
+import type { Request, Response } from 'express'
 import { eq } from 'drizzle-orm'
 import { type Principal, type Role, type UserStatus } from '@basmat/shared'
 import { getDb, schema } from '../db/client.js'
-import { readSessionCookie } from './cookie.js'
+import { readSessionCookie, clearSessionCookie } from './cookie.js'
 
 export interface ResolvedSession {
   principal: Principal
@@ -24,7 +26,7 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url')
 }
 
-export async function resolvePrincipal(req: Request): Promise<ResolvedSession | null> {
+export async function resolvePrincipal(req: Request, res: Response): Promise<ResolvedSession | null> {
   const token = readSessionCookie(req)
   if (!token) return null
   const tokenHash = hashToken(token)
@@ -39,12 +41,17 @@ export async function resolvePrincipal(req: Request): Promise<ResolvedSession | 
     .where(eq(schema.sessions.tokenHash, tokenHash))
     .limit(1)
   const row = rows[0]
+  // Cookie present but no row matches — leave the cookie alone (it could be
+  // a typo'd or rotated value that the next sign-in will overwrite).
   if (!row) return null
   const { session, user } = row
   const now = new Date()
-  if (session.revokedAt) return null
-  if (session.expiresAt.getTime() < now.getTime()) return null
-  if (user.status !== 'active') return null
+  // T011: when the row exists but is stale, clear the cookie on the
+  // response so the browser stops sending it.
+  if (session.revokedAt || session.expiresAt.getTime() < now.getTime() || user.status !== 'active') {
+    clearSessionCookie(res)
+    return null
+  }
   // Touch last_seen_at on the session and the user (best-effort, fire-and-forget).
   void db
     .update(schema.sessions)

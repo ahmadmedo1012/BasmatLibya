@@ -29,6 +29,13 @@
       "when": 1780576547958,
       "tag": "0003_nebulous_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780660000000,
+      "tag": "0004_schema_version_meta",
+      "breakpoints": true
     }
   ]
 }

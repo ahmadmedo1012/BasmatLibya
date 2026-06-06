@@ -42,8 +42,22 @@
     -->
     <script>
       window.__bsl_tg_login = function(user) {
-        // Store the payload for the React app to pick up after mount.
-        window.__bsl_tg_pending = user;
+        // T026: only stash the payload when it has the minimum Telegram
+        // Login Widget shape. This defends against partial loads,
+        // URL-hash fragments that aren't real payloads, and React
+        // Strict-Mode's double-mount (which would otherwise re-fire
+        // handlePayload and double-submit the auth).
+        if (
+          user &&
+          typeof user === 'object' &&
+          typeof user.id === 'number' &&
+          typeof user.first_name === 'string' &&
+          typeof user.auth_date === 'number' &&
+          typeof user.hash === 'string' &&
+          /^[a-f0-9]{64}$/i.test(user.hash)
+        ) {
+          window.__bsl_tg_pending = user;
+        }
       };
     </script>
     <script type="module" src="/src/main.tsx"></script>

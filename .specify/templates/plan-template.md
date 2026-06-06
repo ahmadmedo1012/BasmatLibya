@@ -47,8 +47,12 @@ All implementation plans MUST pass gates derived from the ratified Constitution 
   (Constitution Principle I).
 - **G2 — Shared Typed Contracts (Schema-First)**: all wire contracts in
   `packages/shared` as zod schemas (Principle II).
-- **G3 — Privacy by Design**: no auth, no accounts, 30-day retention enforced
-  (Principle III).
+- **G3 — Privacy by Design (scoped)**: first-party Telegram sign-in is
+  permitted under Principle III sub-clauses 1–8 (PII ceiling, no
+  behavioural tracking, 30-day submitted-identifier retention, 30-day
+  session cap, anonymous visitor cookie, single owner, no social graph,
+  public-source-only). Auth-bearing plans MUST cite the sub-clauses
+  that apply and document the visitor-cookie + retention posture.
 - **G4 — Push-Based Real-Time Progress**: Socket.IO for all progress updates,
   never polling (Principle IV).
 - **G5 — AI-Ready & Simplicity**: enrichment slot reserved as no-op; YAGNI;

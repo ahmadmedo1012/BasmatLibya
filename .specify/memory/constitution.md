@@ -1,28 +1,49 @@
 <!--
 == Sync Impact Report ==
-Version change: (none → initial) 1.0.0
+Version change: 1.0.0 → 1.1.0  (MINOR — Principle III scoped rewrite, no principle removed)
 
-Modified principles: N/A (initial creation)
+Modified principles:
+- Principle III "Privacy by Design" — REWRITTEN. The original text
+  (which forbade any auth, accounts, sessions, or PII) is replaced
+  with a scoped text that permits a single documented exception:
+  first-party Telegram sign-in, used only for trial/abuse-control and
+  admin elevation. Eight binding sub-clauses codify the privacy
+  constraints that exception MUST respect. The 30-day retention rule
+  on submitted identifiers is preserved unchanged from v1.0.0.
 
 Added sections:
-- Principle I: Arabic-First & RTL by Default
-- Principle II: Shared Typed Contracts (Schema-First)
-- Principle III: Privacy by Design (No Auth, No PII)
-- Principle IV: Push-Based Real-Time Progress
-- Principle V: AI-Ready Architecture & Simplicity (YAGNI)
-- Section: Technology Stack & Constraints
-- Section: Development Workflow
-- Governance rules (ratified principles, amendment procedure, versioning policy, compliance)
+- §"Visitor cookie" sub-clause under Principle III — codifies the
+  long-lived `basmat_visitor` cookie as a separate, anonymous identity
+  used only for rate limiting and lookup coalescing.
+- §"Owner role" sub-clause under Principle III — codifies the
+  `OWNER_TELEGRAM_ID` single-admin model and the fact that elevation
+  is server-controlled on every sign-in.
+- §"No behavioural tracking" sub-clause — explicit prohibition.
+- §"No social graph" sub-clause — explicit prohibition.
 
-Removed sections: N/A (initial creation)
+Removed sections: N/A (no principle is removed; Principle III is
+replaced in place because the v1.0.0 text is no longer a faithful
+description of the shipped product).
 
 Templates requiring updates:
-- .specify/templates/plan-template.md: ⚠ pending — Constitution Check section must reference ratified principles and gates
-- .specify/templates/spec-template.md: ✅ updated (no changes needed — already aligned)
-- .specify/templates/tasks-template.md: ✅ updated (no changes needed — already aligned)
-- .specify/templates/commands/: ✅ no command files exist
+- .specify/templates/plan-template.md: ⚠ updated — G3 entry rephrased
+  to reflect the v1.1.0 scope ("scoped first-party sign-in permitted;
+  privacy constraints per Principle III sub-clauses"), not the
+  absolute "no auth" wording of v1.0.0.
+- .specify/templates/spec-template.md: ✅ no change (already principle-
+  agnostic).
+- .specify/templates/tasks-template.md: ✅ no change.
+- .specify/templates/checklist-template.md: ✅ no change.
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- Re-run `/speckit.analyze` against the amended constitution on the
+  next feature. The CRITICAL G3 finding should drop to PASS.
+- Future plan templates' Constitution Check sections should mention
+  "Principle III v1.1.0 is scoped; see sub-clauses 1–8" so contributors
+  are reminded the principle is no longer absolute.
+- Migration step 3 (update feature 005 plan.md Complexity Tracking) is
+  out of scope here — that file is historical record and the
+  amendment is the resolution.
 -->
 
 # BasmatLibya Constitution
@@ -47,14 +68,48 @@ between client and server MUST cause a build-level failure. `packages/shared` is
 single source of truth for all wire contracts — no duplicate type definitions
 elsewhere in the codebase.
 
-### III. Privacy by Design (No Auth, No PII)
+### III. Privacy by Design (scoped to permit first-party sign-in for trial/abuse-control)
 
-The system MUST NOT implement authentication, user accounts, or sessions. No PII
-beyond the submitted identifier value SHALL be stored. Submitted identifiers MUST
-be bound to a 30-day retention window and automatically purged. Rate-limit cookies
-MUST use random opaque IDs that cannot identify a user. The system MUST NOT collect
-private or breached data — only publicly discoverable information. Expired lookups
-MUST resolve to a designed expired state with a one-click re-run option.
+The system MUST minimise the personally identifiable information it stores. The
+following rules apply to the auth-bearing surfaces:
+
+1. **No PII beyond what the user explicitly submits and what Telegram exposes
+   publicly via the Login Widget.** The `users` table MAY hold `telegramId`,
+   `displayName`, `username`, and `avatarUrl` because the Login Widget requires
+   them. No additional profile fields, no email, no phone, no IP-in-plaintext
+   may be persisted.
+2. **No behavioural tracking.** The system MUST NOT log per-user clickstreams,
+   search histories tied to a user, or any analytics that cross-link a user
+   across sessions beyond what's required to render the user's own history
+   page.
+3. **Submitted identifiers (the search input) MUST be bound to a 30-day
+   retention window and automatically purged.** This rule is unchanged from
+   v1.0.0.
+4. **Sessions are short-lived.** `bsl_session` MUST expire within 30 days of
+   issue; the implementation MAY default to 30 days and MUST cap at 90 days
+   regardless of `site_settings`. Session tokens MUST be stored only as
+   sha256-hashed values; the plaintext token MUST never leave the server's
+   response or the browser's cookie jar.
+5. **Visitor cookie is anonymous.** The `basmat_visitor` cookie is a
+   sha256-hashed opaque ID, NOT bound to a user. It exists ONLY for
+   anonymous rate limiting and lookup coalescing. It MUST NOT be used to
+   authenticate, MUST NOT be cleared on sign-out, and MUST NOT survive
+   browser-data clearing.
+6. **Single owner.** The product admits exactly one operator/admin (the
+   `OWNER_TELEGRAM_ID`). Elevation is server-controlled, evaluated on every
+   sign-in, and is not self-claimable.
+7. **No social graph.** The system MUST NOT expose follower/following,
+   messaging, friend lists, or any feature that would require persistent
+   cross-user relationships.
+8. **No private or breached data sources.** The five source providers
+   queried by the pipeline MUST be limited to publicly discoverable
+   information. Any future provider MUST be reviewed for this constraint
+   before being enabled in `SOURCE_PROVIDERS`.
+
+Expired lookups MUST resolve to a designed expired state with a one-click
+re-run option. Trial counters for anonymous visitors are bound to the
+visitor cookie, not to a user; the cap is documented in
+`apps/server/src/services/trial-gate.ts` and surfaced in the product copy.
 
 ### IV. Push-Based Real-Time Progress
 
@@ -133,4 +188,4 @@ non-negotiable constraint unless explicitly amended.
 - **Review cadence**: The constitution SHALL be reviewed at the end of each feature
   milestone.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-06 | **Last Amended**: 2026-06-06
+**Version**: 1.1.0 | **Ratified**: 2026-06-06 | **Last Amended**: 2026-06-06

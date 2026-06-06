@@ -75,8 +75,20 @@ export function loadEnv(): Env {
   if (cached) return cached
   const parsed = EnvSchema.safeParse(process.env)
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n  - ')
-    throw new Error(`Invalid environment configuration:\n  - ${issues}`)
+    // T012: actionable per-variable error. Each missing or invalid variable
+    // is named, with the zod issue, and a fix hint when the variable has a
+    // known source (e.g. .env.example).
+    const issues = parsed.error.issues
+      .map((i) => {
+        const path = i.path.length ? i.path.join('.') : '<root>'
+        return `  - ${path}: ${i.message}`
+      })
+      .join('\n')
+    throw new Error(
+      `Invalid environment configuration (fix in .env or process env; see .env.example for placeholders):\n${issues}\n` +
+        `Hint: NODE_ENV / PORT / RATE_LIMIT_* / RETENTION_DAYS / SOURCE_PROVIDERS / ENRICHMENT_* / NVIDIA_* have safe defaults. ` +
+        `DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, MODEL_SECRET_KEY, OWNER_TELEGRAM_ID are commonly missing in dev — set them in .env.`
+    )
   }
   cached = parsed.data
 
@@ -89,3 +101,9 @@ export const env = new Proxy({} as Env, {
     return (e as Record<string, unknown>)[prop]
   },
 })
+
+// Env ↔ .env.example drift is enforced by
+// `apps/server/tests/hygiene/env-diff.test.ts` (T016/T053). Every key in
+// this schema MUST be documented in `.env.example` and every documented
+// variable MUST be read here. The schema in this file is the source of
+// truth; the .env.example is the documentation.

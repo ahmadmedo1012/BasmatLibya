@@ -1,9 +1,16 @@
 /**
- * Me — signed-in user's history (US4).
+ * Me — signed-in user's history (US4, T015).
+ *
+ * The file was previously named `history.ts` even though the exported
+ * router is `meRouter`. The router is mounted at `/api/me` and provides
+ * `/history` and `/history/:lookupId` endpoints for the signed-in user.
+ * The rename in 005-audit-repair-core (T015) brings the filename in
+ * line with the mount path so future contributors do not have to chase
+ * a misleading import.
  */
 
 import { Router } from 'express'
-import { and, desc, eq, isNull, lt, or } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt } from 'drizzle-orm'
 import {
   type HistoryPage,
   type LookupHistoryItem,

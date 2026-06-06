@@ -1,0 +1,45 @@
+# 005-audit-repair-core (T065): CI gate.
+#
+# Runs pnpm test (server tests + typecheck) on every push to main and on
+# every PR. Render auto-deploys on push to main, but only after this
+# check passes — `github-token` permissions below are minimal and the
+# workflow does NOT touch the deploy. The deploy target is render.yaml
+# (T047), which is the single source of deploy truth (T004/T057).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (shared, server, web)
+        run: pnpm typecheck
+
+      - name: Build shared (consumers depend on dist/)
+        run: pnpm --filter @basmat/shared build
+
+      - name: Test server
+        run: pnpm --filter @basmat/server test
+
+      - name: Build web (sanity — does the production bundle compile?)
+        run: pnpm --filter @basmat/web build

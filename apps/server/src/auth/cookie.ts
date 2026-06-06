@@ -1,14 +1,16 @@
 /**
- * Session cookie helpers (R-04).
+ * Session cookie helpers (R-04, T010).
  *
- * Cookie name + lifetime + attributes. Production gates `Secure` on
- * NODE_ENV === 'production' so localhost dev works without TLS.
+ * Cookie name + lifetime + attributes. `Secure`, `HttpOnly`,
+ * `SameSite=Lax`, `Path=/`, and `COOKIE_DOMAIN` are sourced from the
+ * shared `cookie-policy.ts` so the visitor cookie and the session cookie
+ * cannot drift again.
  */
 
 import type { Request, Response } from 'express'
 import { parse, serialize } from 'cookie'
 import { SESSION_COOKIE_NAME } from '@basmat/shared'
-import { loadEnv } from '../env.js'
+import { getCookiePolicy } from './cookie-policy.js'
 
 export function readSessionCookie(req: Request): string | null {
   const header = req.header('cookie')
@@ -19,27 +21,19 @@ export function readSessionCookie(req: Request): string | null {
 }
 
 export function setSessionCookie(res: Response, token: string, expiresAt: Date): void {
-  const env = loadEnv()
+  const policy = getCookiePolicy()
   const value = serialize(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    ...policy,
     expires: expiresAt,
-    domain: env.COOKIE_DOMAIN || undefined,
   })
   res.appendHeader('Set-Cookie', value)
 }
 
 export function clearSessionCookie(res: Response): void {
-  const env = loadEnv()
+  const policy = getCookiePolicy()
   const value = serialize(SESSION_COOKIE_NAME, '', {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    ...policy,
     maxAge: 0,
-    domain: env.COOKIE_DOMAIN || undefined,
   })
   res.appendHeader('Set-Cookie', value)
 }

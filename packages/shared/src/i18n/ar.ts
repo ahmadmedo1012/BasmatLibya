@@ -88,10 +88,15 @@ export const ar = {
     not_authenticated: 'يجب تسجيل الدخول لمتابعة هذه الخطوة.',
     unauthorized: 'هذه الصفحة مخصّصة للمالك فقط.',
     csrf_required: 'انتهت صلاحية الطلب. الرجاء إعادة المحاولة.',
+    csrf_mismatch: 'تعذّر إكمال الطلب بأمان. حدّث الصفحة وأعد المحاولة.',
     hmac_invalid: 'تعذّر التحقق من تسجيل الدخول عبر تليجرام. الرجاء إعادة المحاولة.',
     auth_date_too_old: 'انتهت صلاحية تسجيل الدخول. الرجاء إعادة المحاولة.',
     bot_unavailable: 'تعذّر الاتصال بتليجرام في هذه اللحظة. حاول بعد قليل.',
-    suspended_user: 'تم تعليق حسابك. الرجاء التواصل مع المالك.',
+    suspended_user: 'حسابك موقوف. للاستفسار، تواصل مع الدعم.',
+    // feature 005 — connection / session
+    network_error: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت وأعد المحاولة.',
+    schema_mismatch: 'النظام قيد التحديث، أعد المحاولة بعد دقيقة.',
+    session_expired: 'انتهت جلستك. سجّل الدخول من جديد.',
     // feature 002 — admin
     validation_failed: 'تعذّر حفظ التغييرات بسبب قيمة غير صالحة.',
     last_owner_protected: 'لا يمكن إزالة المالك الوحيد للمنصّة.',
@@ -101,6 +106,30 @@ export const ar = {
     identifier_invalid: 'المعرّف غير صالح. الرجاء التحقق ثم المحاولة مرة أخرى.',
     identifier_too_short: 'المعرّف قصير جدًا (مطلوب حرفان على الأقل).',
     identifier_too_long: 'المعرّف طويل جدًا (الحد الأقصى ٨٠ حرفًا).',
+  },
+  /**
+   * Recovery action for each surfaced error code. The client maps the
+   * descriptor to a UI action — this is the contract, not the UI.
+   *
+   * Why a structured descriptor instead of just a string? Because
+   * "retry after 60s" needs a number; "redirect to /sign-in?next=" needs
+   * a URL template; "open the paywall modal" needs a component key.
+   * Strings cannot carry those, so the client reads this map.
+   *
+   * The SignInPage.handlePayload mapper is the single consumer on the
+   * web side. If a new code is added without a recovery entry, the
+   * client falls back to the `generic` action (inline Arabic toast).
+   */
+  errorRecovery: {
+    suspended_user: { action: 'redirect', target: '/suspended' },
+    free_trial_exhausted: { action: 'open_paywall' },
+    network_error: { action: 'retry_button' },
+    schema_mismatch: { action: 'retry_after_hint' },
+    session_expired: { action: 'redirect', target: '/sign-in?next={NEXT}' },
+    csrf_mismatch: { action: 'refetch_and_retry' },
+    sign_in_failed: { action: 'inline_toast' },
+    not_authenticated: { action: 'redirect', target: '/sign-in?next={NEXT}' },
+    generic: { action: 'inline_toast' },
   },
   // feature 002 — sign-in surface
   signIn: {

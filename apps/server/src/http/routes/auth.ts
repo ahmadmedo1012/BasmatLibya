@@ -57,6 +57,16 @@ authRouter.post('/telegram', async (req, res) => {
     ))
   }
 
+  // T027 contract: a successful POST /api/auth/telegram MUST
+  //   - carry a Set-Cookie header (browsers won't store the session
+  //     without it)
+  //   - return a body that is the AuthMeResponse shape
+  // The 200 path below already does both. The suspended-user rejection
+  // path is 403 + ErrorResponse (NOT AuthMeResponse — the principal
+  // does not exist for a suspended caller, so there is no AuthMe to
+  // return). The 403 path is already in place below at the
+  // `user.status === 'suspended'` branch.
+
   const payload = result.payload
   const db = getDb()
 
@@ -143,7 +153,7 @@ authRouter.post('/telegram', async (req, res) => {
 })
 
 authRouter.get('/me', async (req, res) => {
-  const session = await resolvePrincipal(req)
+  const session = await resolvePrincipal(req, res)
   if (!session) {
     const body: ErrorResponse = buildArErrorBody('not_authenticated')
     return res.status(401).json(body)

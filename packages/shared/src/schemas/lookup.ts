@@ -29,5 +29,13 @@ export const HealthResponseSchema = z.object({
   status: z.enum(['ok', 'degraded']),
   db: z.enum(['ok', 'down']),
   version: z.string(),
+  /**
+   * Additive in 005-audit-repair-core: the schema version of the running DB
+   * (read from `site_settings.key='schema_version'`). `'unknown'` when the
+   * row is missing or unparseable. Used by the boot-time
+   * `assertSchemaVersion` guard to refuse to serve traffic on a code/DB
+   * mismatch (FR-022, FR-023).
+   */
+  dbSchemaVersion: z.string().default('unknown'),
 })
 export type HealthResponse = z.infer<typeof HealthResponseSchema>

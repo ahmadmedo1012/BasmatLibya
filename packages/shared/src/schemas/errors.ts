@@ -30,7 +30,13 @@ export type ErrorCode = z.infer<typeof ErrorCodeSchema>
 
 export const ErrorResponseSchema = z.object({
   code: ErrorCodeSchema,
-  messageAr: z.string(),
+  /**
+   * Arabic copy the client renders directly. Non-empty: empty `messageAr`
+   * is meaningless (the client would have to fall back, defeating the
+   * purpose of the localised error). Routes enforce this at the
+   * `buildArErrorBody(code)` choke-point.
+   */
+  messageAr: z.string().min(1),
   retryAfterSeconds: z.number().int().nonnegative().nullable().optional(),
   details: z.record(z.unknown()).nullable().optional(),
 })

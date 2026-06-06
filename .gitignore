@@ -45,6 +45,9 @@ apps/server/drizzle/
 # Agent / AI tooling
 .claude/
 .opencode/
+.agents/
+# opencode CLI session config (root) — contains MCP API keys; never commit
+opencode.json
 
 # Python virtual environments
 tooling/osint-venv/

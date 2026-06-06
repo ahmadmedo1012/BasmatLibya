@@ -1,4 +1,13 @@
 services:
+  # Single deploy target — no other deploy surface exists for the main branch.
+  # See spec 005-audit-repair-core (T004) for the verification recipe.
+  # T028: PUBLIC_BASE_URL is the value Express's CORS middleware uses as
+  # the allowed origin. It MUST match the public origin Render serves
+  # traffic on, otherwise cross-site requests will be silently rejected
+  # and the Telegram Login Widget's redirect-mode sign-in will fail with
+  # a CORS error. The Render dashboard confirms this is the service's
+  # primary URL; change both this env var and the dashboard's custom
+  # domain setting in lockstep.
   - type: web
     name: basmatlibya
     runtime: docker

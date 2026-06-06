@@ -78,8 +78,18 @@ export function useSignOut() {
  * Submit a Telegram payload received from the Login Widget callback to the
  * server. On success, the cookie is set and /me is invalidated so the next
  * render shows the signed-in principal.
+ *
+ * T024: when a `QueryClient` is passed, the freshly-parsed `AuthMeResponse`
+ * is also written to the `['auth','me']` cache BEFORE the function
+ * returns. This is what makes the post-redirect principal visible on the
+ * very first render of the `next` route (the alternative — refetch first,
+ * then navigate — leaves a one-frame "anonymous header" gap that the spec
+ * forbids in FR-002).
  */
-export async function submitTelegramPayload(payload: Record<string, unknown>): Promise<AuthMeResponse> {
+export async function submitTelegramPayload(
+  payload: Record<string, unknown>,
+  qc?: { setQueryData: (key: readonly unknown[], data: unknown) => void }
+): Promise<AuthMeResponse> {
   const res = await fetch('/api/auth/telegram', {
     method: 'POST',
     credentials: 'include',
@@ -98,6 +108,7 @@ export async function submitTelegramPayload(payload: Record<string, unknown>): P
   }
   const parsed = AuthMeResponseSchema.parse(await res.json())
   csrfToken = parsed.csrfToken
+  if (qc) qc.setQueryData(['auth', 'me'], parsed)
   return parsed
 }
 

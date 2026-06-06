@@ -32,21 +32,46 @@ export function SignInPage() {
     }
   }, [])
 
-  const handlePayload = useCallback(async (payload: Record<string, unknown>) => {
-    try {
-      await submitTelegramPayload(payload)
-      await qc.refetchQueries({ queryKey: ['auth', 'me'] })
-      const next = new URLSearchParams(window.location.search).get('next') || '/'
-      setLocation(next)
-    } catch (err) {
-      if (err instanceof AuthError) {
-        const map = i18nAr.ar.errors as Record<string, string>
-        setError(map[err.code] ?? i18nAr.ar.signIn.failure.body)
-      } else {
-        setError(i18nAr.ar.signIn.failure.body)
+  const handlePayload = useCallback(
+    async (payload: Record<string, unknown>) => {
+      try {
+        // T024: pass `qc` so the freshly-parsed AuthMeResponse is written
+        // to the cache synchronously — the post-redirect render then sees
+        // the principal on its first frame (no anonymous-header flicker).
+        await submitTelegramPayload(payload, qc)
+        // T025: verify the principal is in the cache before navigating.
+        // If it isn't, surface a designed Arabic error and stay on the
+        // sign-in page so the user can retry instead of being silently
+        // dumped onto the `next` route as anonymous.
+        const cached = qc.getQueryData<{ principal?: { id?: string } }>(['auth', 'me'])
+        if (!cached?.principal?.id) {
+          setError(i18nAr.ar.signIn.failure.body)
+          return
+        }
+        const next = new URLSearchParams(window.location.search).get('next') || '/'
+        // Fire-and-forget the refetch so the cache stays fresh in the
+        // background — but don't block the navigation on it.
+        void qc.invalidateQueries({ queryKey: ['auth', 'me'] })
+        setLocation(next)
+      } catch (err) {
+        if (err instanceof AuthError) {
+          // T025: surface the Arabic error for every AuthError code.
+          const map = i18nAr.ar.errors as Record<string, string>
+          setError(map[err.code] ?? i18nAr.ar.signIn.failure.body)
+          // T027 routing: a suspended-user rejection MUST route to
+          // SuspendedPage (not just show an inline error). We do this
+          // here because the auth surface is the only place that knows
+          // the `suspended_user` code.
+          if (err.code === 'suspended_user') {
+            setLocation('/suspended')
+          }
+        } else {
+          setError(i18nAr.ar.signIn.failure.body)
+        }
       }
-    }
-  }, [qc, setLocation])
+    },
+    [qc, setLocation]
+  )
 
   useEffect(() => {
     fetch('/api/auth/config')

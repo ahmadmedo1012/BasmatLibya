@@ -15,9 +15,10 @@ import { errorMiddleware } from './http/middleware/error.js'
 import { healthRouter } from './http/routes/health.js'
 import { lookupsRouter } from './http/routes/lookups.js'
 import { authRouter } from './http/routes/auth.js'
-import { meRouter } from './http/routes/history.js'
+import { meRouter } from './http/routes/me.js'
 import { adminRouter } from './http/routes/admin/index.js'
 import { attachSocketServer } from './realtime/socket.js'
+import { assertSchemaVersion } from './db/schema-version.js'
 
 const env = loadEnv()
 const here = path.dirname(url.fileURLToPath(import.meta.url))
@@ -90,10 +91,22 @@ export function buildApp() {
   return app
 }
 
-export function startServer() {
+export async function startServer() {
   const app = buildApp()
   const server = createServer(app)
   attachSocketServer(server)
+
+  // T013/T046: refuse to serve if the running code's SCHEMA_VERSION does
+  // not match the DB's stored value. Runs after loadEnv (in the module
+  // init above) and BEFORE server.listen — the contract is: the server
+  // must never accept traffic on a code/DB mismatch. Throws →
+  // process.exit(1) → Render marks the deploy as failed.
+  try {
+    await assertSchemaVersion()
+  } catch (err) {
+    logger.fatal({ err: (err as Error).message }, 'schema version guard failed — refusing to start')
+    process.exit(1)
+  }
 
   if (!env.TELEGRAM_BOT_TOKEN) {
     logger.warn('TELEGRAM_BOT_TOKEN not set — Telegram login will return 503 bot_unavailable')
@@ -125,5 +138,5 @@ export function startServer() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  startServer()
+  void startServer()
 }
