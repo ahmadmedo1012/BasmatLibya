@@ -35,7 +35,9 @@ export function SignInPage() {
       onPayload: async (payload) => {
         try {
           await submitTelegramPayload(payload)
-          await qc.invalidateQueries({ queryKey: ['auth', 'me'] })
+          // Wait for the cache to be refetched so the next page renders
+          // with the signed-in principal instead of stale null.
+          await qc.refetchQueries({ queryKey: ['auth', 'me'] })
           const next = new URLSearchParams(window.location.search).get('next') || '/'
           setLocation(next)
         } catch (err) {
