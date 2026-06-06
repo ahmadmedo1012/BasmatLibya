@@ -8,12 +8,16 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @basmat/web dev",
-    "build": "pnpm --filter @basmat/shared build && pnpm --filter @basmat/web build",
+    "dev": "pnpm --parallel --filter @basmat/server --filter @basmat/web dev",
+    "build": "pnpm --filter @basmat/shared build && pnpm --filter @basmat/server build && pnpm --filter @basmat/web build",
+    "start": "pnpm --filter @basmat/server start",
     "test": "pnpm -r --no-bail run test",
     "typecheck": "pnpm -r --no-bail run typecheck",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @basmat/server db:migrate",
+    "db:seed": "pnpm --filter @basmat/server db:seed",
+    "db:reset": "pnpm --filter @basmat/server db:reset"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: basmatlibya
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/healthz
+    preDeployCommand: pnpm --filter @basmat/server db:migrate
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: SOURCE_PROVIDERS
+        value: mock
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://basmatlibya.onrender.com
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: MODEL_SECRET_KEY
+        sync: false
+      - key: ENRICHMENT_ENABLED
+        value: false
+      - key: RATE_LIMIT_MAX_PER_WINDOW
+        value: 50

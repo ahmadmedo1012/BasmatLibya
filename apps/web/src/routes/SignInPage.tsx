@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'wouter'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { i18nAr } from '@basmat/shared'
 import { Icon } from '../lib/icon.js'
+import { attachTelegramWidget, submitTelegramPayload, AuthError } from '../lib/auth.js'
 
 const PERKS = [
   { icon: 'all_inclusive', label: 'بحث غير محدود مع باقتك' },
@@ -11,7 +14,35 @@ const PERKS = [
 ] as const
 
 export function SignInPage() {
+  const widgetRef = useRef<HTMLDivElement>(null)
+  const [error, setError] = useState<string | null>(null)
   const [, setLocation] = useLocation()
+  const qc = useQueryClient()
+  const botUsername = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? '').trim()
+
+  useEffect(() => {
+    if (!widgetRef.current || !botUsername) return
+    const detach = attachTelegramWidget({
+      el: widgetRef.current,
+      botUsername,
+      onPayload: async (payload) => {
+        try {
+          await submitTelegramPayload(payload)
+          await qc.invalidateQueries({ queryKey: ['auth', 'me'] })
+          const next = new URLSearchParams(window.location.search).get('next') || '/'
+          setLocation(next)
+        } catch (err) {
+          if (err instanceof AuthError) {
+            const map = i18nAr.ar.errors as Record<string, string>
+            setError(map[err.code] ?? i18nAr.ar.signIn.failure.body)
+          } else {
+            setError(i18nAr.ar.signIn.failure.body)
+          }
+        }
+      },
+    })
+    return () => detach()
+  }, [botUsername, qc, setLocation])
 
   return (
     <motion.div
@@ -41,10 +72,25 @@ export function SignInPage() {
         </div>
 
         <div className="relative mt-8 flex justify-center">
-          <div className="glass-card p-6 rounded-2xl text-bodyMd text-inkMuted text-center max-w-md">
-            تسجيل الدخول عبر تليجرام غير متاح في وضع التطوير الثابت.
-          </div>
+          {!botUsername ? (
+            <div className="glass-card p-6 rounded-2xl text-bodyMd text-inkMuted text-center max-w-md">
+              سيتم تفعيل تسجيل الدخول عبر تليجرام بعد ضبط <code className="font-latin">VITE_TELEGRAM_BOT_USERNAME</code>
+              {' '}في إعدادات البيئة.
+            </div>
+          ) : (
+            <div ref={widgetRef} className="min-h-[60px] flex items-center justify-center" aria-label={i18nAr.ar.signIn.telegramAction} />
+          )}
         </div>
+
+        {error && (
+          <div role="alert" className="relative mt-6 glass-card p-4 rounded-2xl text-bodyMd text-danger border-danger/30">
+            <div className="font-semibold mb-1 flex items-center gap-2">
+              <Icon name="error" size={18} />
+              {i18nAr.ar.signIn.failure.title}
+            </div>
+            <div>{error}</div>
+          </div>
+        )}
 
         <div className="relative mt-8 pt-6 border-t border-outlineVariant/30 grid grid-cols-2 gap-3">
           {PERKS.map((p) => (
@@ -55,16 +101,6 @@ export function SignInPage() {
               <span className="leading-snug">{p.label}</span>
             </div>
           ))}
-        </div>
-
-        <div className="relative mt-8 text-center">
-          <button
-            type="button"
-            onClick={() => setLocation('/')}
-            className="text-labelMd text-primary hover:opacity-80"
-          >
-            العودة إلى الصفحة الرئيسية
-          </button>
         </div>
       </div>
     </motion.div>
