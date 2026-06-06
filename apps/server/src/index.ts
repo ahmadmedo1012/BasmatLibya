@@ -19,6 +19,7 @@ import { meRouter } from './http/routes/me.js'
 import { adminRouter } from './http/routes/admin/index.js'
 import { attachSocketServer } from './realtime/socket.js'
 import { assertSchemaVersion } from './db/schema-version.js'
+import { runMigrations } from './db/migrate.js'
 
 const env = loadEnv()
 const here = path.dirname(url.fileURLToPath(import.meta.url))
@@ -96,11 +97,30 @@ export async function startServer() {
   const server = createServer(app)
   attachSocketServer(server)
 
-  // T013/T046: refuse to serve if the running code's SCHEMA_VERSION does
-  // not match the DB's stored value. Runs after loadEnv (in the module
-  // init above) and BEFORE server.listen — the contract is: the server
-  // must never accept traffic on a code/DB mismatch. Throws →
-  // process.exit(1) → Render marks the deploy as failed.
+  // Boot order:
+  //   1. loadEnv()                      (module-init above)
+  //   2. runMigrations()                ← ensures DB is at the expected
+  //                                          schema before we check it
+  //   3. assertSchemaVersion()          ← T013/T046: refuse to serve if
+  //                                          running code's SCHEMA_VERSION
+  //                                          does not match the DB. Throws
+  //                                          → process.exit(1) → Render
+  //                                          marks the deploy as failed.
+  //   4. server.listen()
+  //
+  // runMigrations() is idempotent (drizzle's migrator tracks applied
+  // migrations in __drizzle_migrations), so calling it on every boot
+  // is safe. This removes the dependency on Render's preDeployCommand
+  // for the migration step — the preDeployCommand in render.yaml is
+  // kept as a declarative safety net (its second invocation is a no-op).
+  try {
+    await runMigrations()
+    logger.info('migrations applied (or already up to date)')
+  } catch (err) {
+    logger.fatal({ err: (err as Error).message }, 'migration step failed — refusing to start')
+    process.exit(1)
+  }
+
   try {
     await assertSchemaVersion()
   } catch (err) {

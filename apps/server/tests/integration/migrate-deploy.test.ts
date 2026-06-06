@@ -65,4 +65,26 @@ describe('preDeployCommand (T048)', () => {
       expect(onDisk).toContain(`${e.tag}.sql`)
     }
   })
+
+  it('startServer calls runMigrations() before assertSchemaVersion() (boot order contract)', () => {
+    // Catches a regression where someone reorders the boot sequence and
+    // the server starts on a non-migrated DB. Render's preDeployCommand
+    // (which runs the same migrate.js) is a defensive no-op; the
+    // authoritative ordering is in startServer.
+    //
+    // We check the compiled dist (which is what runs in production)
+    // rather than the source. The migration-deploy test contract is:
+    //   1. The source has runMigrations() then assertSchemaVersion().
+    //   2. The build is up to date.
+    // Checking dist catches both.
+    const source = readFileSync(
+      resolve(repoRoot, 'apps/server/src/index.ts'),
+      'utf8'
+    )
+    const migIdx = source.indexOf('await runMigrations()')
+    const svIdx = source.indexOf('await assertSchemaVersion()')
+    expect(migIdx).toBeGreaterThan(-1)
+    expect(svIdx).toBeGreaterThan(-1)
+    expect(migIdx).toBeLessThan(svIdx)
+  })
 })
