@@ -32,6 +32,9 @@ const EnvSchema = z.object({
 
   // --- Feature 002: Telegram auth ---
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
+  // Telegram bot username (without @). Injected into SPA HTML at serve-time in production.
+  // In dev, Vite reads VITE_TELEGRAM_BOT_USERNAME from apps/web/.env.local.
+  TELEGRAM_BOT_USERNAME: z.string().optional().default(''),
   // Optional Telegram numeric user id. When unset, no user can be granted owner.
   OWNER_TELEGRAM_ID: z
     .string()

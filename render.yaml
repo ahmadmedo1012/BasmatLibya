@@ -19,7 +19,7 @@ services:
         value: https://basmatlibya.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: VITE_TELEGRAM_BOT_USERNAME
+      - key: TELEGRAM_BOT_USERNAME
         sync: false
       - key: MODEL_SECRET_KEY
         sync: false

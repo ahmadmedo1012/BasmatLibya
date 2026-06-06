@@ -64,8 +64,13 @@ export function buildApp() {
   const webDist = path.resolve(here, '../../web/dist')
   if (env.NODE_ENV === 'production' && fs.existsSync(webDist)) {
     app.use(express.static(webDist))
+    const SPA_HTML = fs.readFileSync(path.join(webDist, 'index.html'), 'utf-8')
+      .replace(
+        '</head>',
+        `<script>window.__TG_BOT_USERNAME__=${JSON.stringify(env.TELEGRAM_BOT_USERNAME || '')}</script></head>`
+      )
     app.get(/^(?!\/api\/|\/socket\.io\/).*/, (_req, res) => {
-      res.sendFile(path.join(webDist, 'index.html'))
+      res.type('html').send(SPA_HTML)
     })
   }
 
@@ -80,6 +85,9 @@ export function startServer() {
 
   if (!env.TELEGRAM_BOT_TOKEN) {
     logger.warn('TELEGRAM_BOT_TOKEN not set — Telegram login will return 503 bot_unavailable')
+  }
+  if (!env.TELEGRAM_BOT_USERNAME) {
+    logger.warn('TELEGRAM_BOT_USERNAME not set — Telegram Login Widget will not render')
   }
   if (!env.MODEL_SECRET_KEY) {
     logger.warn('MODEL_SECRET_KEY not set — admin AI model features will fail')
