@@ -16,13 +16,6 @@ import { showToast } from '../components/primitives/Toast.js'
 import { NotFoundPage } from './NotFoundPage.js'
 import { cn } from '../lib/cn.js'
 
-/**
- * FR-012, FR-017: if the socket can't deliver a snapshot in this many
- * ms, fall back to a single GET /api/lookups/:id and navigate based
- * on the terminal state. The fallback is the safety net for poor
- * networks, captive portals, and aggressive ad-blockers that strip
- * the websocket transport.
- */
 const SOCKET_FALLBACK_MS = 5000
 
 interface CategoryView {
@@ -61,35 +54,19 @@ export function ProgressPage({ id }: { id: string }) {
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null
 
     async function go() {
-      // FR-012: start a fallback timer. If the socket doesn't deliver a
-      // snapshot within SOCKET_FALLBACK_MS, we GET /api/lookups/:id
-      // directly and navigate based on the terminal state. This handles
-      // poor networks, captive portals, and ad-blockers that strip WS.
       fallbackTimer = setTimeout(async () => {
         if (!active) return
         try {
           const res = await getLookup(id)
           if (!active) return
-          // Any terminal status (completed / expired / failed) → navigate
-          // to the result page which renders the appropriate empty state.
           setLocation(`/lookups/${id}`)
-          // touch `res` so eslint/ts don't flag the unused binding —
-          // the point of the call is the side effect of validating the
-          // state, not the response shape.
           void res.status
         } catch (e) {
-          if (e instanceof ApiError && e.status === 409) {
-            // Still running — keep the progress UI; the socket may
-            // reconnect on its own.
-            return
-          }
+          if (e instanceof ApiError && e.status === 409) return
           if (e instanceof ApiError && e.status === 404) {
-            // The lookup was deleted or never existed; navigate to the
-            // 404 page so the user has a clean state.
             setLocation('/404')
             return
           }
-          // 5xx or network error — keep the spinner and show a toast.
           showToast(i18nAr.ar.errors.generic, 'error')
         }
       }, SOCKET_FALLBACK_MS)
@@ -247,67 +224,81 @@ export function ProgressPage({ id }: { id: string }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="max-w-2xl mx-auto"
     >
-      <div className="text-center mb-8">
-        <span className="text-labelSm text-primary uppercase tracking-widest">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2 pill bg-primary/15 text-primary border border-primary/30 mb-6 font-bold"
+        >
+          <span className="size-2 rounded-full bg-primary animate-pulse" />
           جاري التحليل
-        </span>
-        <h1 className="text-displayMobile font-bold text-ink mt-2">
+        </motion.div>
+        <h1 className="text-displayMobile font-black text-ink mt-2">
           {i18nAr.ar.progress.heading}
         </h1>
-        <p className="mt-3 text-bodyMd text-inkSoft">{i18nAr.ar.progress.subheading}</p>
+        <p className="mt-4 text-bodyLg text-inkSoft leading-relaxed">{i18nAr.ar.progress.subheading}</p>
       </div>
 
       {/* Overall progress bar */}
-      <div className="glass-card rounded-3xl p-2 overflow-hidden mb-8">
-        <div className="h-2 bg-surfaceContainerLowest rounded-full overflow-hidden">
+      <div className="glass-card-strong rounded-3xl p-2.5 overflow-hidden mb-10 shadow-[0_8px_30px_-10px_rgba(229,62,62,0.3)]">
+        <div className="flex items-center justify-between px-4 mb-2">
+          <span className="text-labelMd text-inkSoft font-semibold">التقدم الكلي</span>
+          <span className="text-labelMd text-primary font-bold">{overall}%</span>
+        </div>
+        <div className="h-3 bg-surfaceContainerLowest rounded-full overflow-hidden">
           <motion.div
-            className="h-full btn-red-gradient rounded-full"
+            className="h-full bg-red-gradient rounded-full"
             initial={{ width: 0 }}
             animate={{ width: `${overall}%` }}
-            transition={{ ease: [0.22, 1, 0.36, 1], duration: 0.4 }}
+            transition={{ ease: [0.22, 1, 0.36, 1], duration: 0.5 }}
           />
         </div>
       </div>
 
       {/* Category list */}
-      <ul className="grid gap-3">
-        {CATEGORY_ORDER.map((k) => {
+      <ul className="grid gap-4">
+        {CATEGORY_ORDER.map((k, i) => {
           const v = categories.get(k)
           const state: CategoryState = v?.state ?? 'queued'
           return (
             <motion.li
               key={k}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.08, duration: 0.4 }}
               layout
               className={cn(
-                'glass-card rounded-2xl px-5 py-4 flex items-center justify-between transition-colors',
+                'glass-card rounded-2xl px-5 py-4 flex items-center justify-between transition-all',
                 state === 'running' && 'border-primary/40 ai-glow',
-                state === 'completed' && 'border-primary/30',
+                state === 'completed' && 'border-primary/25',
                 state === 'failed' && 'border-warning/40'
               )}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <div
                   className={cn(
-                    'size-10 rounded-2xl flex items-center justify-center transition-colors',
-                    state === 'running' && 'bg-primary/15 text-primary animate-pulse',
-                    state === 'completed' && 'bg-primary/10 text-primary',
-                    state === 'failed' && 'bg-warning/10 text-warning',
+                    'size-12 rounded-2xl flex items-center justify-center transition-all',
+                    state === 'running' && 'bg-primary/20 text-primary animate-pulse',
+                    state === 'completed' && 'bg-primary/15 text-primary',
+                    state === 'failed' && 'bg-warning/15 text-warning',
                     state === 'queued' && 'bg-surfaceContainer text-inkMuted',
                     state === 'skipped' && 'bg-surfaceContainerLowest text-inkDim'
                   )}
                 >
-                  <Icon name={CATEGORY_ICON[k]} size={20} />
+                  <Icon name={CATEGORY_ICON[k]} size={24} />
                 </div>
                 <div>
-                  <div className="text-bodyMd text-ink font-medium">
+                  <div className="text-bodyMd text-ink font-bold">
                     {i18nAr.ar.categories[k]}
                   </div>
-                  <div className="text-labelSm text-inkMuted mt-0.5">
+                  <div className="text-labelSm text-inkMuted mt-0.5 font-medium">
                     {i18nAr.ar.categoryStates[state]}
                     {v && v.findingsCount > 0 ? ` · ${v.findingsCount} نتيجة` : ''}
                   </div>
@@ -319,31 +310,30 @@ export function ProgressPage({ id }: { id: string }) {
         })}
       </ul>
 
-      <div className="mt-10 flex justify-center">
-        <Button variant="ghost" onClick={onCancel} loading={cancel.isPending}>
-          <Icon name="close" size={18} />
+      <div className="mt-12 flex justify-center">
+        <Button variant="ghost" onClick={onCancel} loading={cancel.isPending} className="font-semibold">
+          <Icon name="close" size={20} />
           {cancel.isPending ? i18nAr.ar.progress.cancelling : i18nAr.ar.progress.cancel}
         </Button>
       </div>
-
     </motion.div>
   )
 }
 
 function StateIcon({ state }: { state: CategoryState }) {
   if (state === 'completed') {
-    return <Icon name="check_circle" fill className="text-primary" size={22} />
+    return <Icon name="check_circle" fill className="text-success" size={26} />
   }
   if (state === 'failed') {
-    return <Icon name="error" className="text-warning" size={22} />
+    return <Icon name="error" className="text-warning" size={26} />
   }
   if (state === 'running') {
     return (
-      <span className="inline-block size-4 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
+      <span className="inline-block size-5 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
     )
   }
   if (state === 'skipped') {
-    return <Icon name="remove_circle" className="text-inkDim" size={20} />
+    return <Icon name="remove_circle" className="text-inkDim" size={24} />
   }
-  return <Icon name="schedule" className="text-inkMuted" size={20} />
+  return <Icon name="schedule" className="text-inkMuted" size={24} />
 }

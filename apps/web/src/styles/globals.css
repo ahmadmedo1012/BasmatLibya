@@ -22,16 +22,16 @@
     text-rendering: optimizeLegibility;
     min-height: 100vh;
     overflow-x: hidden;
-    /* Layered ambient glow — warm, restrained. */
+    /* Layered ambient glow — richer, more visible. */
     background-image:
-      radial-gradient(900px 600px at 80% -10%, rgba(229, 90, 90, 0.10), transparent 65%),
-      radial-gradient(700px 500px at -5% 25%, rgba(124, 60, 60, 0.06), transparent 65%),
-      radial-gradient(500px 400px at 50% 110%, rgba(229, 90, 90, 0.06), transparent 70%);
+      radial-gradient(1000px 700px at 80% -10%, rgba(229, 62, 62, 0.14), transparent 60%),
+      radial-gradient(800px 600px at -5% 25%, rgba(153, 27, 27, 0.08), transparent 60%),
+      radial-gradient(600px 500px at 50% 110%, rgba(229, 62, 62, 0.08), transparent 65%);
     background-attachment: fixed;
   }
 
   ::selection {
-    background-color: rgba(229, 90, 90, 0.32);
+    background-color: rgba(229, 62, 62, 0.4);
     color: #fff;
   }
 
@@ -47,7 +47,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 3px 3px;
     z-index: 0;
     mix-blend-mode: overlay;
@@ -85,55 +85,60 @@
 
 @layer components {
   .shadow-card {
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.35);
   }
 
-  /* Glass surfaces — warmer & more refined than Stitch's defaults. */
+  /* Glass surfaces — richer, more visible, warmer. */
   .glass-card {
     background: linear-gradient(
       180deg,
-      rgba(28, 22, 22, 0.68) 0%,
-      rgba(20, 16, 16, 0.55) 100%
+      rgba(30, 20, 20, 0.75) 0%,
+      rgba(18, 12, 12, 0.65) 100%
     );
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .glass-card-strong {
     background: linear-gradient(
       180deg,
-      rgba(40, 24, 24, 0.72) 0%,
-      rgba(24, 16, 16, 0.62) 100%
+      rgba(45, 22, 22, 0.80) 0%,
+      rgba(28, 14, 14, 0.70) 100%
     );
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    border: 1px solid rgba(229, 90, 90, 0.18);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(229, 62, 62, 0.22);
   }
 
   .ai-glow {
     box-shadow:
-      0 0 0 1px rgba(229, 90, 90, 0.15),
-      0 24px 60px -28px rgba(229, 90, 90, 0.35);
+      0 0 0 1px rgba(229, 62, 62, 0.2),
+      0 30px 70px -28px rgba(229, 62, 62, 0.4);
   }
 
   .search-glow:focus-within {
     box-shadow:
-      0 0 0 1px rgba(229, 90, 90, 0.45),
-      0 0 28px rgba(229, 90, 90, 0.20);
+      0 0 0 2px rgba(229, 62, 62, 0.5),
+      0 0 35px rgba(229, 62, 62, 0.25);
     border-color: theme('colors.primary');
   }
 
   .btn-red-gradient {
     background: theme('backgroundImage.red-gradient');
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+  }
+  .btn-red-gradient:hover {
+    background: theme('backgroundImage.red-gradient-hover');
+    box-shadow: 0 8px 30px -8px rgba(229, 62, 62, 0.5);
   }
 
   .pill {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium tracking-wide;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold tracking-wide;
   }
 
   .accent-gradient-text {
-    background: linear-gradient(120deg, #f3ebe7 0%, #e55a5a 60%, #ed6e6e 100%);
+    background: linear-gradient(120deg, #fff5f0 0%, #ff6b6b 50%, #e53e3e 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -155,10 +160,10 @@
   }
   .bg-grid {
     background-image:
-      radial-gradient(rgba(229, 90, 90, 0.05) 1px, transparent 1px),
-      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-    background-size: 44px 44px, 88px 88px, 88px 88px;
+      radial-gradient(rgba(229, 62, 62, 0.06) 1px, transparent 1px),
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 48px 48px, 96px 96px, 96px 96px;
     background-position: 0 0, 0 0, 0 0;
   }
   .bg-aurora {
@@ -173,25 +178,25 @@
     content: '';
     position: absolute;
     border-radius: 9999px;
-    filter: blur(120px);
-    opacity: 0.55;
+    filter: blur(100px);
+    opacity: 0.65;
     will-change: transform;
   }
   .bg-aurora::before {
-    width: 60vw;
-    height: 60vw;
-    top: -20vw;
-    right: -10vw;
-    background: radial-gradient(circle, rgba(229, 90, 90, 0.45), transparent 60%);
-    animation: aurora 22s ease-in-out infinite;
+    width: 65vw;
+    height: 65vw;
+    top: -22vw;
+    right: -12vw;
+    background: radial-gradient(circle, rgba(229, 62, 62, 0.5), transparent 55%);
+    animation: aurora 20s ease-in-out infinite;
   }
   .bg-aurora::after {
-    width: 50vw;
-    height: 50vw;
-    bottom: -15vw;
-    left: -10vw;
-    background: radial-gradient(circle, rgba(157, 42, 42, 0.32), transparent 60%);
-    animation: aurora 18s ease-in-out infinite reverse;
+    width: 55vw;
+    height: 55vw;
+    bottom: -18vw;
+    left: -12vw;
+    background: radial-gradient(circle, rgba(153, 27, 27, 0.4), transparent 55%);
+    animation: aurora 16s ease-in-out infinite reverse;
   }
   @media (prefers-reduced-motion: reduce) {
     .bg-aurora::before,
@@ -207,16 +212,16 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.10) 50%,
+      rgba(255, 255, 255, 0.12) 50%,
       transparent 100%
     );
   }
   .shimmer-text {
     background: linear-gradient(
       90deg,
-      rgba(243, 235, 231, 0.45) 0%,
-      rgba(243, 235, 231, 1) 50%,
-      rgba(243, 235, 231, 0.45) 100%
+      rgba(255, 245, 240, 0.4) 0%,
+      rgba(255, 245, 240, 1) 50%,
+      rgba(255, 245, 240, 0.4) 100%
     );
     background-size: 200% 100%;
     -webkit-background-clip: text;
@@ -225,21 +230,21 @@
     animation: shimmer 2.4s linear infinite;
   }
   .accent-gradient-text-strong {
-    background: linear-gradient(120deg, #ffe5dc 0%, #ed6e6e 35%, #e55a5a 60%, #ed6e6e 100%);
+    background: linear-gradient(120deg, #fff0e8 0%, #ff8080 30%, #e53e3e 60%, #ff6b6b 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: gradientShift 8s ease infinite;
+    animation: gradientShift 6s ease infinite;
   }
   .ring-glow {
     box-shadow:
-      0 0 0 1px rgba(229, 90, 90, 0.3),
-      0 0 40px rgba(229, 90, 90, 0.25),
-      0 24px 60px -22px rgba(229, 90, 90, 0.4);
+      0 0 0 1px rgba(229, 62, 62, 0.35),
+      0 0 50px rgba(229, 62, 62, 0.3),
+      0 24px 60px -22px rgba(229, 62, 62, 0.45);
   }
   .text-stroke-faint {
-    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.08);
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.1);
     color: transparent;
   }
 }

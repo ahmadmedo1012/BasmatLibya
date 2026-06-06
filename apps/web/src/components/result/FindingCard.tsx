@@ -18,7 +18,7 @@ const CONFIDENCE_ICON: Record<Confidence, string> = {
 }
 
 const CONFIDENCE_COLOR: Record<Confidence, string> = {
-  high: 'text-primary',
+  high: 'text-success',
   medium: 'text-warning',
   low: 'text-inkMuted',
 }
@@ -62,24 +62,24 @@ export function FindingCard({
 }) {
   if (compact) {
     return (
-      <li className="flex items-start justify-between gap-3 py-1">
+      <li className="flex items-start justify-between gap-3 py-2 px-3 rounded-xl hover:bg-surfaceContainer/50 transition-colors">
         {finding.sourceUrl ? (
           <a
             href={finding.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-bodyMd text-inkSoft hover:text-primary transition-colors flex-1 min-w-0 truncate"
+            className="text-bodyMd text-inkSoft hover:text-primary transition-colors flex-1 min-w-0 truncate font-medium"
           >
             <BidiIsolate lang={finding.language ?? null}>{finding.title}</BidiIsolate>
           </a>
         ) : (
-          <span className="text-bodyMd text-inkSoft flex-1 min-w-0 truncate">
+          <span className="text-bodyMd text-inkSoft flex-1 min-w-0 truncate font-medium">
             <BidiIsolate lang={finding.language ?? null}>{finding.title}</BidiIsolate>
           </span>
         )}
         <Icon
           name={CONFIDENCE_ICON[finding.confidence]}
-          size={16}
+          size={18}
           className={cn('shrink-0 mt-0.5', CONFIDENCE_COLOR[finding.confidence])}
         />
       </li>
@@ -91,8 +91,8 @@ export function FindingCard({
   const [imgError, setImgError] = useState(false)
 
   return (
-    <li className="rounded-2xl border border-outlineVariant/30 bg-surfaceContainerLow p-4 hover:bg-surfaceContainer transition-colors">
-      <div className="flex items-start gap-3">
+    <li className="rounded-2xl border border-outlineVariant/25 bg-surfaceContainerLow p-5 hover:bg-surfaceContainer transition-all hover:border-primary/20">
+      <div className="flex items-start gap-4">
         {/* Avatar */}
         {!imgError && rich && md?.imageUrl ? (
           <a
@@ -105,7 +105,7 @@ export function FindingCard({
               src={md.imageUrl}
               alt=""
               loading="lazy"
-              className="w-14 h-14 rounded-full object-cover border border-outlineVariant/40 bg-surfaceContainer"
+              className="w-16 h-16 rounded-2xl object-cover border-2 border-outlineVariant/40 bg-surfaceContainer"
               onError={() => setImgError(true)}
             />
           </a>
@@ -115,12 +115,14 @@ export function FindingCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {rich && md?.fullname ? (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-ink font-semibold leading-snug">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-ink font-bold text-bodyLg leading-snug">
                     <BidiIsolate lang={finding.language ?? null}>{md.fullname}</BidiIsolate>
                   </span>
                   {md.isVerified === true && (
-                    <Icon name="verified" size={16} className="text-primary shrink-0" />
+                    <span className="size-6 rounded-full bg-primary/15 flex items-center justify-center">
+                      <Icon name="verified" size={16} className="text-primary" />
+                    </span>
                   )}
                 </div>
               ) : null}
@@ -130,8 +132,8 @@ export function FindingCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    'block hover:text-primary transition-colors leading-snug',
-                    rich && md?.fullname ? 'text-bodyMd text-inkSoft' : 'text-ink font-medium'
+                    'block hover:text-primary transition-colors leading-snug mt-0.5',
+                    rich && md?.fullname ? 'text-bodyMd text-inkSoft font-medium' : 'text-ink font-bold text-bodyLg'
                   )}
                 >
                   <BidiIsolate lang={finding.language ?? null}>{finding.title}</BidiIsolate>
@@ -139,8 +141,8 @@ export function FindingCard({
               ) : (
                 <span
                   className={cn(
-                    'leading-snug',
-                    rich && md?.fullname ? 'text-bodyMd text-inkSoft' : 'text-ink font-medium'
+                    'leading-snug mt-0.5 block',
+                    rich && md?.fullname ? 'text-bodyMd text-inkSoft font-medium' : 'text-ink font-bold text-bodyLg'
                   )}
                 >
                   <BidiIsolate lang={finding.language ?? null}>{finding.title}</BidiIsolate>
@@ -149,32 +151,33 @@ export function FindingCard({
             </div>
             <span
               className={cn(
-                'pill shrink-0 border',
+                'pill shrink-0 font-bold',
                 finding.confidence === 'high'
-                  ? 'bg-primary/15 text-primary border-primary/30'
+                  ? 'bg-success/15 text-success border border-success/30'
                   : finding.confidence === 'medium'
-                    ? 'bg-warning/15 text-warning border-warning/30'
-                    : 'bg-surfaceVariant text-inkMuted border-outlineVariant'
+                    ? 'bg-warning/15 text-warning border border-warning/30'
+                    : 'bg-surfaceVariant text-inkMuted border border-outlineVariant'
               )}
             >
+              <Icon name={CONFIDENCE_ICON[finding.confidence]} size={14} />
               {CONFIDENCE_LABEL[finding.confidence]}
             </span>
           </div>
 
           {/* Bio */}
           {rich && md?.bio ? (
-            <p className="mt-2 text-bodyMd text-inkSoft leading-relaxed line-clamp-3">
+            <p className="mt-3 text-bodyMd text-inkSoft leading-relaxed line-clamp-3">
               <BidiIsolate lang={finding.language ?? null}>{md.bio}</BidiIsolate>
             </p>
           ) : finding.snippet ? (
-            <p className="mt-2 text-bodyMd text-inkSoft leading-relaxed">
+            <p className="mt-3 text-bodyMd text-inkSoft leading-relaxed">
               <BidiIsolate lang={finding.language ?? null}>{finding.snippet}</BidiIsolate>
             </p>
           ) : null}
 
           {/* Stats row */}
           {rich ? (
-            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-labelMd text-inkSoft">
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
               {md?.followerCount != null && (
                 <Stat icon="group" label={`${formatNumber(md.followerCount)} متابع`} />
               )}
@@ -194,10 +197,10 @@ export function FindingCard({
                   href={md.blogUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                  className="flex items-center gap-1.5 hover:text-primary transition-colors text-labelMd text-inkSoft"
                   dir="ltr"
                 >
-                  <Icon name="link" size={14} />
+                  <Icon name="link" size={16} />
                   <span className="font-latin truncate max-w-[180px]">{md.blogUrl.replace(/^https?:\/\//, '')}</span>
                 </a>
               )}
@@ -205,10 +208,10 @@ export function FindingCard({
           ) : null}
 
           {/* Source row */}
-          <div className="mt-3 flex items-center gap-2 text-labelSm text-inkMuted">
-            <Icon name={finding.sourceUrl ? 'link' : 'source'} size={14} />
-            <span>{i18nAr.ar.result.sourceLabel}:</span>
-            <BidiIsolate lang="en" className="text-inkSoft">
+          <div className="mt-4 flex items-center gap-2 text-labelSm text-inkMuted bg-surfaceContainer/50 rounded-lg px-3 py-2 w-fit">
+            <Icon name={finding.sourceUrl ? 'link' : 'source'} size={16} className="text-primary" />
+            <span className="font-medium">{i18nAr.ar.result.sourceLabel}:</span>
+            <BidiIsolate lang="en" className="text-inkSoft font-semibold">
               {finding.sourceName}
             </BidiIsolate>
           </div>
@@ -220,9 +223,9 @@ export function FindingCard({
 
 function Stat({ icon, label, ltr }: { icon: string; label: string; ltr?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5" dir={ltr ? 'ltr' : undefined}>
-      <Icon name={icon} size={14} className="text-inkMuted shrink-0" />
-      <span className={ltr ? 'font-latin' : ''}>{label}</span>
+    <span className="flex items-center gap-1.5 text-labelMd text-inkSoft bg-surfaceContainer/60 rounded-lg px-2.5 py-1" dir={ltr ? 'ltr' : undefined}>
+      <Icon name={icon} size={16} className="text-inkMuted shrink-0" />
+      <span className={ltr ? 'font-latin' : 'font-medium'}>{label}</span>
     </span>
   )
 }

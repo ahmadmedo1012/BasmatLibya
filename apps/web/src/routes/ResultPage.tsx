@@ -60,8 +60,9 @@ export function ResultPage({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-20" aria-busy>
-        <span className="inline-block size-6 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
+      <div className="flex flex-col items-center justify-center py-24 gap-4" aria-busy>
+        <div className="size-12 rounded-full border-3 border-primary/40 border-t-primary animate-spin" />
+        <p className="text-bodyMd text-inkMuted font-medium">جاري تحميل النتائج…</p>
       </div>
     )
   }
@@ -82,21 +83,22 @@ export function ResultPage({ id }: { id: string }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="max-w-maxWidth mx-auto"
     >
       {/* Search Query Header */}
-      <section className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <span className="text-labelSm text-primary uppercase tracking-widest">
+      <section className="mb-10 flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-2 min-w-0 flex-1">
+          <span className="text-labelMd text-primary font-bold uppercase tracking-widest flex items-center gap-2">
+            <Icon name="analytics" size={16} fill />
             تحليل الكيان
           </span>
-          <h1 className="text-displayMobile font-bold text-ink break-words">
+          <h1 className="text-displayMobile font-black text-ink break-words leading-tight">
             {data.identifierValue}
           </h1>
-          <p className="text-bodyMd text-inkSoft mt-1">{data.summaryHeadlineAr}</p>
+          <p className="text-bodyLg text-inkSoft mt-1 leading-relaxed">{data.summaryHeadlineAr}</p>
         </div>
         <div className="hidden md:block">
           <ShareLinkButton lookupId={data.id} />
@@ -104,14 +106,16 @@ export function ResultPage({ id }: { id: string }) {
       </section>
 
       {/* AI Summary — flagship card */}
-      <section className="mb-10">
+      <section className="mb-12">
         <EnrichmentSlot enrichment={data.enrichment} />
       </section>
 
       {/* Identity disclaimer */}
-      <div className="glass-card p-4 rounded-2xl border-warning/20 bg-warning/5 mb-8 flex items-start gap-3">
-        <Icon name="info" className="text-warning shrink-0 mt-0.5" size={20} />
-        <p className="text-bodyMd text-inkSoft">{i18nAr.ar.result.identityDisclaimer}</p>
+      <div className="glass-card-strong p-5 rounded-2xl border-warning/25 bg-warning/8 mb-10 flex items-start gap-4">
+        <div className="size-10 rounded-xl bg-warning/15 flex items-center justify-center shrink-0">
+          <Icon name="info" className="text-warning" size={22} />
+        </div>
+        <p className="text-bodyMd text-inkSoft leading-relaxed pt-1">{i18nAr.ar.result.identityDisclaimer}</p>
       </div>
 
       {totalFindings === 0 ? (
@@ -119,13 +123,13 @@ export function ResultPage({ id }: { id: string }) {
       ) : (
         <>
           {failedCount > 0 ? (
-            <div className="mb-6">
+            <div className="mb-8">
               <DegradedState />
             </div>
           ) : null}
 
           {/* Results Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {data.categories.map((c) => (
               <CategorySection key={c.key} block={c} icon={CATEGORY_ICON[c.key]} />
             ))}
@@ -133,9 +137,9 @@ export function ResultPage({ id }: { id: string }) {
         </>
       )}
 
-      <div className="mt-12 flex justify-center">
-        <Button variant="outline" onClick={() => setLocation('/')}>
-          <Icon name="add" size={20} />
+      <div className="mt-16 flex justify-center">
+        <Button variant="outline" onClick={() => setLocation('/')} className="font-bold px-8 py-4 text-bodyLg">
+          <Icon name="add" size={22} />
           بحث جديد
         </Button>
       </div>
