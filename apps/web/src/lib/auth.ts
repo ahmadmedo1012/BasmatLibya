@@ -115,7 +115,8 @@ export function attachTelegramWidget(opts: {
   size?: 'small' | 'medium' | 'large'
   cornerRadius?: number
 }): () => void {
-  const callbackName = `__bsl_tg_login_${Math.random().toString(36).slice(2)}`
+  // Use a stable callback name so it survives page reloads (redirect flow).
+  const callbackName = '__bsl_tg_login'
   ;(window as unknown as Record<string, unknown>)[callbackName] = (payload: Record<string, unknown>) => {
     opts.onPayload(payload)
   }
@@ -126,7 +127,8 @@ export function attachTelegramWidget(opts: {
   script.setAttribute('data-size', opts.size ?? 'large')
   script.setAttribute('data-radius', String(opts.cornerRadius ?? 12))
   script.setAttribute('data-onauth', `${callbackName}(user)`)
-  script.setAttribute('data-request-access', 'write')
+  // Do NOT request 'write' access — it forces a redirect flow that loses
+  // the in-memory callback. Popup callback (default) keeps the page alive.
   opts.el.appendChild(script)
   return () => {
     script.remove()
