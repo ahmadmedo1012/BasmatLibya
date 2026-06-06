@@ -34,7 +34,7 @@ export function buildApp() {
           ? {
               directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'", 'https://telegram.org'],
+                scriptSrc: ["'self'", 'https://telegram.org', "'unsafe-eval'"],
                 frameSrc: ['https://oauth.telegram.org'],
                 styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
                 imgSrc: ["'self'", 'data:'],
