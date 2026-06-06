@@ -29,7 +29,23 @@ export function buildApp() {
 
   app.use(
     helmet({
-      contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : false,
+      contentSecurityPolicy:
+        env.NODE_ENV === 'production'
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", 'https://telegram.org'],
+                frameSrc: ['https://oauth.telegram.org'],
+                styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+                imgSrc: ["'self'", 'data:'],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", 'https:', 'data:'],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+              },
+            }
+          : false,
     })
   )
   app.use(
